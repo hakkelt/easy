@@ -96,7 +96,7 @@ function TokenStream(input) {
         return str;
     }
     function read_string() {
-        return { type: "str", value: read_escaped('"') };
+        return { type: "string", value: read_escaped('"') };
     }
     function skip_comment() {
         read_while(function(ch){ return ch != "\n" });
@@ -306,7 +306,7 @@ function parse(input) {
                 return parse_lambda();
             }
             var tok = input.next();
-            if (tok.type == "var" || tok.type == "num" || tok.type == "str")
+            if (tok.type == "var" || tok.type == "num" || tok.type == "string")
                 return tok;
             unexpected();
         });
@@ -327,6 +327,7 @@ function parse(input) {
     }
     function parse_expression() {
         return maybe_call(function(){
+            while(skip_punc("\n", true));
             return maybe_binary(parse_atom(), 0);
         });
     }
@@ -376,7 +377,7 @@ Environment.prototype = {
 function evaluate(exp, env) {
     switch (exp.type) {
       case "num":
-      case "str":
+      case "string":
       case "bool":
         return exp;
 
@@ -417,7 +418,9 @@ function evaluate(exp, env) {
 
       case "prog":
         var val = false;
-        exp.prog.forEach(function(exp){ val = evaluate(exp, env) });
+        exp.prog.forEach(function(exp){
+          val = evaluate(exp, env);
+        });
         return val;
 
       case "call":
