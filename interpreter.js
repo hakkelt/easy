@@ -160,9 +160,15 @@ function parse(input) {
         var tok = input.peek();
         return tok && tok.type == "op" && (!op || tok.value == op) && tok;
     }
-    function skip_punc(ch) {
-        if (is_punc(ch)) input.next();
-        else input.croak("Expecting punctuation: \"" + ch + "\"");
+    function skip_punc(ch, optional=false) {
+        if (is_punc(ch)) {
+            input.next();
+            return true;
+        }
+        else if (!optional)
+            input.croak("Expecting punctuation: \"" + ch + "\"");
+        else
+            return false;
     }
     function skip_kw(kw) {
         if (is_kw(kw)) input.next();
@@ -193,12 +199,12 @@ function parse(input) {
     }
     function delimited(start, stop, separator, parser) {
         var a = [], first = true;
-        skip_punc(start);
+        if (start) skip_punc(start);
         while (!input.eof()) {
             if (is_punc(stop)) break;
             if (first) first = false; else skip_punc(separator);
             if (is_punc(stop)) break;
-            if (separator == "\n" && is_punc(separator)) continue;
+            if (separator == "\n" && is_punc("\n")) continue;
             a.push(parser());
         }
         skip_punc(stop);
@@ -213,14 +219,24 @@ function parse(input) {
     }
     function parse_new_var() {
       skip_kw("var");
-      var name = parse_varname();
       skip_punc(":");
+      var ret = {
+        type: "new_var",
+        vars: []
+      };
+      while (true) {
+        skip_punc("\n", true);
+        ret.vars.push(parse_varline());
+        if (!skip_punc(",", true)) return ret;
+      }
+    }
+    function parse_varline() {
+      var names = delimited(null, ":", ",", parse_varname);
       var type = input.next();
-      if (VAR_TYPES.indexOf(" " + type.value + " ") == -1)
+      if (type.type != "kw" || VAR_TYPES.indexOf(" " + type.value + " ") == -1)
         input.croak("Expecting variable type name");
       return {
-        type: "new_var",
-        var_name: name,
+        var_names: names,
         type_name: type.value
       };
     }
