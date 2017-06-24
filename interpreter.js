@@ -17,7 +17,7 @@ function InputStream(input) {
     function eof() {
         return peek() == "";
     }
-    function croak(msg) {
+    function croak(msg, ast=null) {
         throw new Error(msg + " (" + line + ":" + col + ")");
     }
 }
@@ -47,10 +47,10 @@ function TokenStream(input) {
         return "+-*/%=&|<>!".indexOf(ch) >= 0;
     }
     function is_punc(ch) {
-        return ":,;(){}[]".indexOf(ch) >= 0;
+        return ":,(){}[]\n".indexOf(ch) >= 0;
     }
     function is_whitespace(ch) {
-        return " \t\n".indexOf(ch) >= 0;
+        return " \t".indexOf(ch) >= 0;
     }
     function read_while(predicate) {
         var str = "";
@@ -198,6 +198,7 @@ function parse(input) {
             if (is_punc(stop)) break;
             if (first) first = false; else skip_punc(separator);
             if (is_punc(stop)) break;
+            if (separator == "\n" && is_punc(separator)) continue;
             a.push(parser());
         }
         skip_punc(stop);
@@ -298,12 +299,12 @@ function parse(input) {
         var prog = [];
         while (!input.eof()) {
             prog.push(parse_expression());
-            if (!input.eof()) skip_punc(";");
+            if (!input.eof()) skip_punc("\n");
         }
         return { type: "prog", prog: prog };
     }
     function parse_prog() {
-        var prog = delimited("{", "}", ";", parse_expression);
+        var prog = delimited("{", "}", "\n", parse_expression);
         if (prog.length == 0) return FALSE;
         if (prog.length == 1) return prog[0];
         return { type: "prog", prog: prog };
