@@ -236,8 +236,8 @@ function parse(input) {
       if (type.type != "kw" || VAR_TYPES.indexOf(" " + type.value + " ") == -1)
         input.croak("Expecting variable type name");
       return {
-        var_names: names,
-        type_name: type.value
+        names: names,
+        type: type.value
       };
     }
     function parse_varname() {
@@ -359,10 +359,17 @@ Environment.prototype = {
         var scope = this.lookup(name);
         if (!scope && this.parent)
             throw new Error("Undefined variable " + name);
+        var variable = (scope || this).vars[name];
+        if (variable.type != value.type)
+            throw new Error("Type mismatch: " + name + " is type of " + variable.type
+              + " and " + value.value + " is type of " + value.type);
         return (scope || this).vars[name] = value;
     },
-    def: function(name, value) {
-        return this.vars[name] = value;
+    def: function(name, type, value) {
+        return this.vars[name] = {
+          type: type,
+          value: value
+        };
     }
 };
 
@@ -371,13 +378,19 @@ function evaluate(exp, env) {
       case "num":
       case "str":
       case "bool":
-        return exp.value;
+        return exp;
 
       case "var":
         return env.get(exp.value);
 
       case "new_var":
-        return env.def(exp.var_name, null);
+        var val = false;
+        exp.vars.forEach(function(one_type) {
+          one_type.names.forEach(function(var_name) {
+            val = env.def(var_name, one_type.type, null)
+          });
+        });
+        return val;
 
       case "assign":
         if (exp.left.type != "var")
@@ -398,7 +411,7 @@ function evaluate(exp, env) {
         return exp.else ? evaluate(exp.else, env) : false;
 
       case "while":
-        while (evaluate(exp.cond, env) !== false)
+        while (evaluate(exp.cond, env).value)
         	evaluate(exp.body, env);
         return false;
 
@@ -408,7 +421,7 @@ function evaluate(exp, env) {
         return val;
 
       case "call":
-        var func = evaluate(exp.func, env);
+        var func = evaluate(exp.func, env).value;
         return func.apply(null, exp.args.map(function(arg){
             return evaluate(arg, env);
         }));
@@ -420,29 +433,29 @@ function evaluate(exp, env) {
 
 function apply_op(op, a, b) {
     function num(x) {
-        if (typeof x != "number")
+        if (x.type !== "num")
             throw new Error("Expected number but got " + x);
-        return x;
+        return x.value;
     }
     function div(x) {
         if (num(x) == 0)
             throw new Error("Divide by zero");
-        return x;
+        return x.value;
     }
     switch (op) {
-      case "+": return num(a) + num(b);
-      case "-": return num(a) - num(b);
-      case "*": return num(a) * num(b);
-      case "/": return num(a) / div(b);
-      case "%": return num(a) % div(b);
-      case "&&": return a !== false && b;
-      case "||": return a !== false ? a : b;
-      case "<": return num(a) < num(b);
-      case ">": return num(a) > num(b);
-      case "<=": return num(a) <= num(b);
-      case ">=": return num(a) >= num(b);
-      case "==": return a === b;
-      case "!=": return a !== b;
+      case "+": return {type: "num", value: num(a) + num(b)};
+      case "-": return {type: "num", value: num(a) - num(b)};
+      case "*": return {type: "num", value: num(a) * num(b)};
+      case "/": return {type: "num", value: num(a) / div(b)};
+      case "%": return {type: "num", value: num(a) % div(b)};
+      case "&&": return {type: "bool", value: a !== false && b};
+      case "||": return {type: "bool", value: a !== false ? a : b};
+      case "<": return {type: "bool", value: num(a) < num(b)};
+      case ">": return {type: "bool", value: num(a) > num(b)};
+      case "<=": return {type: "bool", value: num(a) <= num(b)};
+      case ">=": return {type: "bool", value: num(a) >= num(b)};
+      case "==": return {type: "bool", value: a === b};
+      case "!=": return {type: "bool", value: a !== b};
     }
     throw new Error("Can't apply operator " + op);
 }
@@ -467,7 +480,7 @@ function print_ast(ast) {
 
 var globalEnv = new Environment();
 
-globalEnv.def("time", function(func){
+globalEnv.def("time", "function", function(func){
     try {
         console.time("time");
         return func();
@@ -478,11 +491,11 @@ globalEnv.def("time", function(func){
 
 if (typeof process != "undefined") (function(){
     var util = require("util");
-    globalEnv.def("println", function(val){
-        process.stdout.write(val.toString() + '\n');
+    globalEnv.def("println", "function", function(val){
+        process.stdout.write(val.value.toString() + '\n');
     });
-    globalEnv.def("print", function(val){
-        process.stdout.write(val.toString());
+    globalEnv.def("print", "function", function(val){
+        process.stdout.write(val.value.toString());
     });
     var code = "";
     process.stdin.setEncoding("utf8");
@@ -492,7 +505,6 @@ if (typeof process != "undefined") (function(){
     });
     process.stdin.on("end", function(){
         var ast = parse(TokenStream(InputStream(code)));
-        print_ast(ast);
         evaluate(ast, globalEnv);
     });
 })();
