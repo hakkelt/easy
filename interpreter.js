@@ -5,7 +5,8 @@ function InputStream(input) {
         peek  : peek,
         eof   : eof,
         croak : croak,
-        line  : line
+        line  : getLine,
+        col   : getColumn
     };
     function next() {
         var ch = input.charAt(pos++);
@@ -18,8 +19,14 @@ function InputStream(input) {
     function eof() {
         return peek() == "";
     }
-    function croak(msg, ast=null) {
+    function croak(msg) {
         throw new Error(msg + " (" + line + ":" + col + ")");
+    }
+    function getLine() {
+      return line;
+    }
+    function getColumn() {
+      return col;
     }
 }
 
@@ -31,7 +38,9 @@ function TokenStream(input) {
         next  : next,
         peek  : peek,
         eof   : eof,
-        croak : input.croak
+        croak : input.croak,
+        line  : input.line,
+        col   : input.col
     };
     function is_keyword(x) {
         return keywords.indexOf(" " + x + " ") >= 0;
@@ -126,15 +135,21 @@ function TokenStream(input) {
         input.croak("Can't handle character: " + ch);
     }
     function peek() {
-        return current || (current = read_next());
+        return current || (current = appendPosition(read_next()));
     }
     function next() {
         var tok = current;
         current = null;
-        return tok || read_next();
+        return tok || appendPosition(read_next());
     }
     function eof() {
         return peek() == null;
+    }
+    function appendPosition(token) {
+      if (!token) return null;
+      token.line   = input.line();
+      token.column = input.col();
+      return token;
     }
 }
 
@@ -201,7 +216,9 @@ function parse(input) {
                     type     : tok.value == "=" ? "assign" : "binary",
                     operator : tok.value,
                     left     : left,
-                    right    : maybe_binary(parse_atom(), his_prec)
+                    right    : maybe_binary(parse_atom(), his_prec),
+                    line     : input.line(),
+                    col      : input.col()
                 }, my_prec);
             }
         }
@@ -222,16 +239,20 @@ function parse(input) {
     }
     function parse_call(func) {
         return {
-            type: "call",
-            func: func,
-            args: delimited("(", ")", ",", parse_expression),
+            type : "call",
+            func : func,
+            args : delimited("(", ")", ",", parse_expression),
+            line : input.line(),
+            col  : input.col()
         };
     }
     function parse_new_var() {
       skip_punc(":");
       var ret = {
-        type: "new_var",
-        vars: []
+        type : "new_var",
+        vars : [],
+        line : input.line(),
+        col  : input.col()
       };
       while (true) {
         skip_punc("\n", true);
@@ -245,8 +266,10 @@ function parse(input) {
       if (type.type != "kw" || VAR_TYPES.indexOf(" " + type.value + " ") == -1)
         input.croak("Expecting variable type name");
       return {
-        names: names,
-        type: type.value
+        names : names,
+        type  : type.value,
+        line  : input.line(),
+        col   : input.col()
       };
     }
     function parse_varname() {
@@ -278,7 +301,9 @@ function parse(input) {
         var ret = {
             type: "if",
             cond: parse_expression(),
-            then: read_block("then", "end_if", parse_expression, "else")
+            then: read_block("then", "end_if", parse_expression, "else"),
+            line     : input.line(),
+            col      : input.col()
         };
         if (is_kw("else"))
             ret.else = read_block("else", "end_if", parse_expression);
@@ -295,16 +320,20 @@ function parse(input) {
         var name = input.next();
         if (name.type != "var") input.croak("Expecting function name");
         return {
-            type: "function",
-            name: name.value,
-            vars: delimited("(", ")", ",", parse_varname),
-            body: read_block(null, "end_function", parse_expression)
+            type : "function",
+            name : name.value,
+            vars : delimited("(", ")", ",", parse_varname),
+            body : read_block(null, "end_function", parse_expression),
+            line : input.line(),
+            col  : input.col()
         };
     }
     function parse_bool() {
         return {
             type  : "bool",
-            value : input.next().value == "true"
+            value : input.next().value == "true",
+            line  : input.line(),
+            col   : input.col()
         };
     }
     function maybe_call(expr) {
@@ -362,35 +391,87 @@ Environment.prototype = {
         }
     },
     get: function(name) {
-        if (name in this.vars)
-            if (!this.vars[name])
-                throw new Error("Variable not initialized: " + name);
-            return this.vars[name];
-        throw new Error("Undefined variable " + name);
+        if (name.value in this.vars)
+            if (!this.vars[name.value])
+                croak("Variable not initialized: " + name.value, name);
+            return this.vars[name.value];
+        croak("Undefined variable " + name.value, name);
     },
     set: function(name, value) {
         var scope = this.lookup(name);
         if (!scope && this.parent)
-            throw new Error("Undefined variable " + name);
+            croak("Undefined variable " + name, exp);
         var variable = (scope || this).vars[name];
         if (variable.type != value.type)
-            throw new Error("Type mismatch: " + name + " is type of " + variable.type
-              + " and " + value.value + " is type of " + value.type);
+            croak("Type mismatch: " + name + " is type of " + variable.type
+              + " and " + value.value + " is type of " + value.type, value);
         return (scope || this).vars[name] = value;
     },
-    def: function(name, type, value) {
+    def: function(name, value) {
         if (this.vars[name]){
-            if (type != "function") type = "variable";
-            throw new Error("Redefinition of " + type + " " + name);
+            if (value.type != "function") type = "variable";
+            croak("Redefinition of " + type + " " + name, value);
           }
         return this.vars[name] = {
-          type: type,
-          value: value
+          type: value.type,
+          value: value.value
         };
     }
 };
 
 function evaluate(exp, env) {
+    function apply_op(op, a, b) {
+        function num(x) {
+            if (x.type !== "num")
+                croak("Expected number, but got " + x.value, x);
+            return x.value;
+        }
+        function div(x) {
+            if (num(x) == 0)
+                croak("Divide by zero", x);
+            return x.value;
+        }
+        switch (op) {
+          case "+": return {type: "num", value: num(a) + num(b)};
+          case "-": return {type: "num", value: num(a) - num(b)};
+          case "*": return {type: "num", value: num(a) * num(b)};
+          case "/": return {type: "num", value: num(a) / div(b)};
+          case "%": return {type: "num", value: num(a) % div(b)};
+          case "&&": return {type: "bool", value: a !== false && b};
+          case "||": return {type: "bool", value: a !== false ? a : b};
+          case "<": return {type: "bool", value: num(a) < num(b)};
+          case ">": return {type: "bool", value: num(a) > num(b)};
+          case "<=": return {type: "bool", value: num(a) <= num(b)};
+          case ">=": return {type: "bool", value: num(a) >= num(b)};
+          case "==": return {type: "bool", value: a === b};
+          case "!=": return {type: "bool", value: a !== b};
+        }
+        croak("Can't apply operator " + op, a);
+    }
+
+    function wrap(type, value, pos) {
+      return {
+          type  : type,
+          value : value,
+          line  : pos.line
+      }
+    }
+
+    function make_function(env, exp) {
+        function lambda() {
+            var names = exp.vars;
+            var scope = env.extend();
+            if (arguments.length != names.length)
+              croak("Calling function \"" + exp.name + "\" with improper number of arguments", exp);
+            for (var i = 0; i < names.length; ++i){
+                scope.def(names[i], arguments[i]);
+              }
+            return evaluate(exp.body, scope);
+        }
+        env.def(exp.name, wrap("function", lambda, exp));
+        return lambda;
+    }
+
     switch (exp.type) {
       case "num":
       case "string":
@@ -398,20 +479,21 @@ function evaluate(exp, env) {
         return exp;
 
       case "var":
-        return env.get(exp.value);
+        return env.get(exp);
 
       case "new_var":
         var val = false;
         exp.vars.forEach(function(one_type) {
           one_type.names.forEach(function(var_name) {
-            val = env.def(var_name, one_type.type, null)
+            print_ast(one_type);
+            val = env.def(var_name, wrap(one_type.type, null, one_type))
           });
         });
         return val;
 
       case "assign":
         if (exp.left.type != "var")
-            throw new Error("Cannot assign to " + JSON.stringify(exp.left));
+            croak("Cannot assign to " + JSON.stringify(exp.left), exp);
         return env.set(exp.left.value, evaluate(exp.right, env));
 
       case "binary":
@@ -446,52 +528,12 @@ function evaluate(exp, env) {
         }));
 
       default:
-        throw new Error("I don't know how to evaluate " + exp.type);
+        tcroak("I don't know how to evaluate " + exp.type, exp);
     }
 }
 
-function apply_op(op, a, b) {
-    function num(x) {
-        if (x.type !== "num")
-            throw new Error("Expected number but got " + x);
-        return x.value;
-    }
-    function div(x) {
-        if (num(x) == 0)
-            throw new Error("Divide by zero");
-        return x.value;
-    }
-    switch (op) {
-      case "+": return {type: "num", value: num(a) + num(b)};
-      case "-": return {type: "num", value: num(a) - num(b)};
-      case "*": return {type: "num", value: num(a) * num(b)};
-      case "/": return {type: "num", value: num(a) / div(b)};
-      case "%": return {type: "num", value: num(a) % div(b)};
-      case "&&": return {type: "bool", value: a !== false && b};
-      case "||": return {type: "bool", value: a !== false ? a : b};
-      case "<": return {type: "bool", value: num(a) < num(b)};
-      case ">": return {type: "bool", value: num(a) > num(b)};
-      case "<=": return {type: "bool", value: num(a) <= num(b)};
-      case ">=": return {type: "bool", value: num(a) >= num(b)};
-      case "==": return {type: "bool", value: a === b};
-      case "!=": return {type: "bool", value: a !== b};
-    }
-    throw new Error("Can't apply operator " + op);
-}
-
-function make_function(env, exp) {
-    function lambda() {
-        var names = exp.vars;
-        var scope = env.extend();
-        if (arguments.length != names.length)
-          throw new Error("Calling function \"" + exp.name + "\" with improper number of arguments");
-        for (var i = 0; i < names.length; ++i){
-            scope.def(names[i], arguments[i].type, arguments[i].value);
-          }
-        return evaluate(exp.body, scope);
-    }
-    env.def(exp.name, "function", lambda);
-    return lambda;
+function croak(msg, exp) {
+    throw new Error(msg + " (" + exp.line + ":" + null + ")");
 }
 
 function print_ast(ast) {

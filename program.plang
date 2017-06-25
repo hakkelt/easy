@@ -1,5 +1,6 @@
 var:
-	sz1,sz2:num
+	sz1,sz2:num,
+	sz1:string
 
 sz1 = 1
 sz2 = 10
