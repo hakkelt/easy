@@ -34,6 +34,7 @@ function TokenStream(input) {
     var current = null;
     var keywords =
     " if then else end_if function end_function true false while end_while var num string bool and or ";
+    var op_keywords = " and or not ";
     return {
         next  : next,
         peek  : peek,
@@ -55,7 +56,7 @@ function TokenStream(input) {
         return is_id_start(ch) || "0123456789".indexOf(ch) >= 0;
     }
     function is_op_char(ch) {
-        return "+-*/%=<>!&|".indexOf(ch) >= 0;
+        return "+-*/%=<>!←".indexOf(ch) >= 0;
     }
     function is_punc(ch) {
         return ":,(){}[]\n".indexOf(ch) >= 0;
@@ -84,7 +85,7 @@ function TokenStream(input) {
     function read_ident() {
         var id = read_while(is_id);
         return {
-            type  : is_keyword(id) ? "kw" : "var",
+            type  : kw_op(id) ? "op" : (is_keyword(id) ? "kw" : "var"),
             value : id
         };
     }
@@ -112,6 +113,9 @@ function TokenStream(input) {
     function skip_comment() {
         read_while(function(ch){ return ch != "\n" });
         input.next();
+    }
+    function kw_op(token) {
+        return op_keywords.indexOf(" " + token + " ") >= 0;
     }
     function read_next() {
         read_while(is_whitespace);
@@ -155,9 +159,9 @@ function TokenStream(input) {
 
 function parse(input) {
     var PRECEDENCE = {
-        "=": 1,
-        "||": 2,
-        "&&": 3,
+        "←": 1,
+        "or": 2,
+        "and": 3,
         "<": 7, ">": 7, "<=": 7, ">=": 7, "==": 7, "!=": 7,
         "+": 10, "-": 10,
         "*": 20, "/": 20, "%": 20,
@@ -213,7 +217,7 @@ function parse(input) {
             if (his_prec > my_prec) {
                 input.next();
                 return maybe_binary({
-                    type     : tok.value == "=" ? "assign" : "binary",
+                    type     : tok.value == "←" ? "assign" : "binary",
                     operator : tok.value,
                     left     : left,
                     right    : maybe_binary(parse_atom(), his_prec),
@@ -341,7 +345,7 @@ function parse(input) {
         return is_punc("(") ? parse_call(expr) : expr;
     }
     function parse_atom() {
-        return maybe_call(function(){
+        var ret = maybe_call(function(){
             if (skip_punc("(", true)) {
                 var exp = parse_expression();
                 skip_punc(")");
@@ -357,6 +361,8 @@ function parse(input) {
                 return tok;
             unexpected();
         });
+        print_ast(ret);
+        return ret;
     }
     function parse_toplevel() {
         var prog = [];
@@ -501,8 +507,8 @@ function apply_op(op, a, b) {
       case "*": return {type: "num", value: num(a) * num(b)};
       case "/": return {type: "num", value: num(a) / div(b)};
       case "%": return {type: "num", value: num(a) % div(b)};
-      case "&&": return {type: "bool", value: a !== false && b};
-      case "||": return {type: "bool", value: a !== false ? a : b};
+      case "and": return {type: "bool", value: a !== false && b};
+      case "or": return {type: "bool", value: a !== false ? a : b};
       case "<": return {type: "bool", value: num(a) < num(b)};
       case ">": return {type: "bool", value: num(a) > num(b)};
       case "<=": return {type: "bool", value: num(a) <= num(b)};

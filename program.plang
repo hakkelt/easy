@@ -1,16 +1,16 @@
 var:
 	a,b:num
 
-a = 1
-b = 10
+a ← 1
+b ← 10
 
 function kiir(a, b)
 	while a <= b
 	      print(a)
-	      if a < b then
+	      if a < b and a < 20 then
 					 print(", ") // asdfasdf
 				end_if
-	      a = a + 1
+	      a ← a + 1
 	end_while
 end_function
 
