@@ -32,8 +32,8 @@ function InputStream(input) {
 
 function TokenStream(input) {
     var current = null;
-    var keywords =
-    " if then else end_if function end_function true false while end_while var num string bool and or ";
+    var keywords = " if then else_if else end_if function end_function \
+     true false while end_while var num string bool and or ";
     var op_keywords = " and or not ";
     return {
         next  : next,
@@ -268,56 +268,75 @@ function parse(input) {
         if (name.type != "var") input.croak("Expecting variable name");
         return name.value;
     }
-    function delimited_kw(start, stop, parser,optional_stop=null) {
-        var a = [], first = true;
+    function delimited_kw(start, stop, parser) {
+      console.log(start, stop)
+        var a = [];
         if (start) skip_kw(start);
         while (!input.eof()) {
-            if (skip_kw(stop, true) || (optional_stop && is_kw(optional_stop)))
-              return a;
-            if (first) first = false; else skip_punc("\n");
-            if (skip_kw(stop, true) || (optional_stop && is_kw(optional_stop)))
-              return a;
-            if (is_punc("\n")) continue;
+            if (skip_punc("\n", true)) continue;
+            for (var i = 0; i < stop.length; i++) {
+              console.log(stop[i], ":", is_kw(stop[i]), " - ", input.peek());
+              if (is_kw(stop[i])) {
+                console.log("kilép");
+                  return a;
+              }
+            }
             a.push(parser());
         }
         return a;
     }
-    function read_block(start, stop, parser, optional_stop=null) {
-      var prog = delimited_kw(start, stop, parser, optional_stop);
-      if (prog.length == 0)
-        input.croak("Execting at least one expression inside the " + stop + " block");
-      return (prog.length == 1) ? prog[0] : { type: "prog", prog: prog };
+    function read_block(start, stop, parser) {
+        var line = input.line();
+        var prog = delimited_kw(start, stop, parser);
+        if (prog.length == 0)
+            input.croak("Execting at least one expression inside the " + stop + " block");
+        return { type: "prog", prog: prog, line: line, col: null };
     }
     function parse_if() {
         var ret = {
             type: "if",
-            cond: parse_expression(),
-            then: read_block("then", "end_if", parse_expression, "else"),
-            line     : input.line(),
-            col      : input.col()
+            cond: [],
+            then: [],
+            line: input.line(),
+            col : null
         };
-        if (is_kw("else"))
-            ret.else = read_block("else", "end_if", parse_expression);
+        do {
+            console.log("parse_if - else_if")
+            ret.cond.push(parse_expression());
+            ret.then.push(read_block("then", ["else_if", "else", "end_if"], parse_expression))
+        } while (skip_kw("else_if", true));
+        console.log("parse_if - after else_if")
+        if (is_kw("else")){
+            console.log("hékás!");
+            ret.else = read_block("else", ["end_if"], parse_expression);
+        }
+        skip_kw("end_if");
         return ret;
     }
     function parse_while() {
-        return {
+        var ret = {
             type: "while",
+            line: input.line(),
+            col : null,
             cond: parse_expression(),
-            body: read_block(null, "end_while", parse_expression),
+            body: read_block(null, ["end_while"], parse_expression)
         };
+        skip_kw("end_while");
+        return ret;
     }
     function parse_function() {
         var name = input.next();
         if (name.type != "var") input.croak("Expecting function name");
-        return {
+        var ret = {
             type : "function",
             name : name.value,
             line : input.line(),
             col  : input.col(),
             vars : delimited("(", ")", ",", parse_varname),
-            body : read_block(null, "end_function", parse_expression)
+            body : read_block(null, ["end_function"], parse_expression)
         };
+        skip_kw("end_function");
+        return ret;
     }
     function parse_bool() {
         return {
@@ -337,9 +356,9 @@ function parse(input) {
                     type     : tok.value == "←" ? "assign" : "binary",
                     operator : tok.value,
                     left     : left,
-                    right    : maybe_binary(parse_atom(), his_prec),
                     line     : input.line(),
-                    col      : input.col()
+                    col      : input.col(),
+                    right    : maybe_binary(parse_atom(), his_prec)
                 }, my_prec);
             }
         }
@@ -371,9 +390,10 @@ function parse(input) {
         var prog = [];
         while (!input.eof()) {
             prog.push(parse_expression());
+            console.log(input.peek());
             if (!input.eof()) skip_punc("\n");
         }
-        return { type: "prog", prog: prog };
+        return { type: "prog", prog: prog, line: 1, col: null };
     }
     function parse_expression() {
         return maybe_call(function(){
@@ -430,7 +450,6 @@ Environment.prototype = {
 };
 
 function evaluate(exp, env) {
-    //print_ast(exp);
     switch (exp.type) {
       case "num":
       case "string":
@@ -455,8 +474,8 @@ function evaluate(exp, env) {
         return env.set(exp.left.value, evaluate(exp.right, env));
 
       case "binary":
-      var left  = evaluate(exp.left,  env);
-      var right = evaluate(exp.right, env);
+        var left  = evaluate(exp.left,  env);
+        var right = evaluate(exp.right, env);
         return apply_op(exp.operator,
                         wrap(left.type,  left.value,  exp),
                         wrap(right.type, right.value, exp));
@@ -465,8 +484,9 @@ function evaluate(exp, env) {
         return make_function(env, exp);
 
       case "if":
-        var cond = evaluate(exp.cond, env).value;
-        if (cond != false) return evaluate(exp.then, env);
+        for (var i = 0; i < exp.cond.length; i++)
+          if (evaluate(exp.cond[i], env).value != false)
+            return evaluate(exp.then[i], env);
         return exp.else ? evaluate(exp.else, env) : false;
 
       case "while":
@@ -524,8 +544,8 @@ function apply_op(op, a, b) {
       case ">": return {type: "bool", value: num(a) > num(b)};
       case "<=": return {type: "bool", value: num(a) <= num(b)};
       case ">=": return {type: "bool", value: num(a) >= num(b)};
-      case "==": return {type: "bool", value: bool(a) === bool(b)};
-      case "!=": return {type: "bool", value: bool(a) !== bool(b)};
+      case "==": return {type: "bool", value: a.value === b.value};
+      case "!=": return {type: "bool", value: a.value !== b.value};
     }
     croak("Can't apply operator " + op, a);
 }

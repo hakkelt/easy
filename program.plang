@@ -7,8 +7,10 @@ b ← 10
 function kiir(a, b)
 	while a <= b
 	      print(a)
-	      if a < b and a < 20 then
-					 print(", ") // asdfasdf
+				if a == 1 then
+					 print(" -> ")
+				else_if a < b and a > 0 then
+					 print(", ") // comment
 				else
 					 print(" :)")
 				end_if
