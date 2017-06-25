@@ -1,22 +1,21 @@
-var:
-	a,b:num
+var: a,B:num
 
-a ← 1
+A ← 1
 b ← 10
 
-function kiir(a, b)
-	while a <= b
-	      print(a)
-				if a == 1 then
+Function Kiir(a, b)
+	WHILe a <= b
+	      print(A)
+				IF A == 1 then
 					 print(" -> ")
-				else_if a < b and a > 0 then
+				else_if a < B and a > 0 Then
 					 print(", ") // comment
 				else
 					 print(" :)")
 				end_if
 	      a ← a + 1
-	end_while
-end_function
+	END_WHILE
+end_Function
 
 kiir(a, 10)
-println("")
+printLN("")

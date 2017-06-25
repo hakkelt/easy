@@ -44,7 +44,7 @@ function TokenStream(input) {
         col   : input.col
     };
     function is_keyword(x) {
-        return keywords.indexOf(" " + x + " ") >= 0;
+        return keywords.indexOf(" " + x.toLowerCase() + " ") >= 0;
     }
     function is_digit(ch) {
         return /[0-9]/i.test(ch);
@@ -180,11 +180,11 @@ function parse(input) {
     }
     function is_kw(kw) {
         var tok = input.peek();
-        return tok && tok.type == "kw" && (!kw || tok.value == kw) && tok;
+        return tok && tok.type == "kw" && (!kw || tok.value.toLowerCase() == kw) && tok;
     }
     function is_op(op) {
         var tok = input.peek();
-        return tok && tok.type == "op" && (!op || tok.value == op) && tok;
+        return tok && tok.type == "op" && (!op || tok.value.toLowerCase() == op) && tok;
     }
     function skip_punc(ch, optional=false) {
         if (is_punc(ch)) {
@@ -258,7 +258,7 @@ function parse(input) {
         input.croak("Expecting variable type name");
       return {
         names : names,
-        type  : type.value,
+        type  : type.value.toLowerCase(),
         line  : input.line(),
         col   : input.col()
       };
@@ -266,18 +266,15 @@ function parse(input) {
     function parse_varname() {
         var name = input.next();
         if (name.type != "var") input.croak("Expecting variable name");
-        return name.value;
+        return name.value.toLowerCase();
     }
     function delimited_kw(start, stop, parser) {
-      console.log(start, stop)
         var a = [];
         if (start) skip_kw(start);
         while (!input.eof()) {
             if (skip_punc("\n", true)) continue;
             for (var i = 0; i < stop.length; i++) {
-              console.log(stop[i], ":", is_kw(stop[i]), " - ", input.peek());
               if (is_kw(stop[i])) {
-                console.log("kilép");
                   return a;
               }
             }
@@ -301,15 +298,11 @@ function parse(input) {
             col : null
         };
         do {
-            console.log("parse_if - else_if")
             ret.cond.push(parse_expression());
             ret.then.push(read_block("then", ["else_if", "else", "end_if"], parse_expression))
         } while (skip_kw("else_if", true));
-        console.log("parse_if - after else_if")
-        if (is_kw("else")){
-            console.log("hékás!");
+        if (is_kw("else"))
             ret.else = read_block("else", ["end_if"], parse_expression);
-        }
         skip_kw("end_if");
         return ret;
     }
@@ -390,7 +383,6 @@ function parse(input) {
         var prog = [];
         while (!input.eof()) {
             prog.push(parse_expression());
-            console.log(input.peek());
             if (!input.eof()) skip_punc("\n");
         }
         return { type: "prog", prog: prog, line: 1, col: null };
@@ -414,35 +406,35 @@ Environment.prototype = {
     lookup: function(name) {
         var scope = this;
         while (scope) {
-            if (Object.prototype.hasOwnProperty.call(scope.vars, name))
+            if (Object.prototype.hasOwnProperty.call(scope.vars, name.toLowerCase()))
                 return scope;
             scope = scope.parent;
         }
     },
     get: function(name) {
-        if (name.value in this.vars){
-            if (!this.vars[name.value])
+        if (name.value.toLowerCase() in this.vars){
+            if (!this.vars[name.value.toLowerCase()])
                 croak("Variable not initialized: " + name.value, name);
-            return this.vars[name.value];
+            return this.vars[name.value.toLowerCase()];
         }
         croak("Undefined variable " + name.value, name);
     },
     set: function(name, value) {
-        var scope = this.lookup(name);
+        var scope = this.lookup(name.toLowerCase());
         if (!scope && this.parent)
             croak("Undefined variable " + name, exp);
-        var variable = (scope || this).vars[name];
+        var variable = (scope || this).vars[name.toLowerCase()];
         if (variable.type !== value.type)
             croak("Type mismatch: " + name + " is type of " + variable.type
               + " and " + value.value + " is type of " + value.type, value);
-        return (scope || this).vars[name] = value;
+        return (scope || this).vars[name.toLowerCase()] = value;
     },
     def: function(name, value) {
-        if (!!this.vars.length && name in this.vars){
+        if (!!this.vars.length && name.toLowerCase() in this.vars){
             if (value.type !== "function") type = "variable";
             croak("Redefinition of " + type + " " + name, value);
         }
-        return this.vars[name] = {
+        return this.vars[name.toLowerCase()] = {
           type: value.type,
           value: value.value
         };
@@ -450,7 +442,7 @@ Environment.prototype = {
 };
 
 function evaluate(exp, env) {
-    switch (exp.type) {
+    switch (exp.type.toLowerCase()) {
       case "num":
       case "string":
       case "bool":
