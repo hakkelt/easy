@@ -5,14 +5,15 @@ function InputStream(input) {
         peek  : peek,
         eof   : eof,
         croak : croak,
+        line  : line
     };
     function next() {
         var ch = input.charAt(pos++);
         if (ch == "\n") line++, col = 0; else col++;
         return ch;
     }
-    function peek() {
-        return input.charAt(pos);
+    function peek(offset=0) {
+        return input.charAt(pos+offset);
     }
     function eof() {
         return peek() == "";
@@ -24,7 +25,8 @@ function InputStream(input) {
 
 function TokenStream(input) {
     var current = null;
-    var keywords = " if then else lambda λ true false while var num string bool ";
+    var keywords =
+    " if then else end_if function end_function true false while end_while var num string bool ";
     return {
         next  : next,
         peek  : peek,
@@ -38,10 +40,10 @@ function TokenStream(input) {
         return /[0-9]/i.test(ch);
     }
     function is_id_start(ch) {
-        return /[a-zλ_]/i.test(ch);
+        return /[a-z_]/i.test(ch);
     }
     function is_id(ch) {
-        return is_id_start(ch) || "?!-<>=0123456789".indexOf(ch) >= 0;
+        return is_id_start(ch) || "0123456789".indexOf(ch) >= 0;
     }
     function is_op_char(ch) {
         return "+-*/%=&|<>!".indexOf(ch) >= 0;
@@ -106,7 +108,7 @@ function TokenStream(input) {
         read_while(is_whitespace);
         if (input.eof()) return null;
         var ch = input.peek();
-        if (ch == "#") {
+        if (ch == "/" && input.peek(1) == "/") {
             skip_comment();
             return read_next();
         }
@@ -165,14 +167,22 @@ function parse(input) {
             input.next();
             return true;
         }
-        else if (!optional)
+        else if (!optional){
+            if (ch == "\n") ch = "newline";
             input.croak("Expecting punctuation: \"" + ch + "\"");
+        }
         else
             return false;
     }
-    function skip_kw(kw) {
-        if (is_kw(kw)) input.next();
-        else input.croak("Expecting keyword: \"" + kw + "\"");
+    function skip_kw(kw, optional=false) {
+        if (is_kw(kw)) {
+            input.next();
+            return true;
+        }
+        else if (!optional)
+            input.croak("Expecting keyword: \"" + kw + "\"");
+        else
+            return false;
     }
     function skip_op(op) {
         if (is_op(op)) input.next();
@@ -204,7 +214,7 @@ function parse(input) {
             if (is_punc(stop)) break;
             if (first) first = false; else skip_punc(separator);
             if (is_punc(stop)) break;
-            if (separator == "\n" && is_punc("\n")) continue;
+            //if (separator == "\n" && is_punc("\n")) continue;
             a.push(parser());
         }
         skip_punc(stop);
@@ -218,7 +228,6 @@ function parse(input) {
         };
     }
     function parse_new_var() {
-      skip_kw("var");
       skip_punc(":");
       var ret = {
         type: "new_var",
@@ -245,37 +254,51 @@ function parse(input) {
         if (name.type != "var") input.croak("Expecting variable name");
         return name.value;
     }
+    function delimited_kw(start, stop, parser,optional_stop=null) {
+        var a = [], first = true;
+        if (start) skip_kw(start);
+        while (!input.eof()) {
+            if (skip_kw(stop, true) || (optional_stop && is_kw(optional_stop)))
+              return a;
+            if (first) first = false; else skip_punc("\n");
+            if (skip_kw(stop, true) || (optional_stop && is_kw(optional_stop)))
+              return a;
+            if (is_punc("\n")) continue;
+            a.push(parser());
+        }
+        return a;
+    }
+    function read_block(start, stop, parser, optional_stop=null) {
+      var prog = delimited_kw(start, stop, parser, optional_stop);
+      if (prog.length == 0)
+        input.croak("Execting at least one expression inside the " + stop + " block");
+      return (prog.length == 1) ? prog[0] : { type: "prog", prog: prog };
+    }
     function parse_if() {
-        skip_kw("if");
-        var cond = parse_expression();
-        if (!is_punc("{")) skip_kw("then");
-        var then = parse_expression();
         var ret = {
             type: "if",
-            cond: cond,
-            then: then,
+            cond: parse_expression(),
+            then: read_block("then", "end_if", parse_expression, "else")
         };
-        if (is_kw("else")) {
-            input.next();
-            ret.else = parse_expression();
-        }
+        if (is_kw("else"))
+            ret.else = read_block("else", "end_if", parse_expression);
         return ret;
     }
     function parse_while() {
-        skip_kw("while");
-        var cond = parse_expression();
-        var body = parse_expression();
         return {
             type: "while",
-            cond: cond,
-            body: body,
+            cond: parse_expression(),
+            body: read_block(null, "end_while", parse_expression),
         };
     }
-    function parse_lambda() {
+    function parse_function() {
+        var name = input.next();
+        if (name.type != "var") input.croak("Expecting function name");
         return {
-            type: "lambda",
+            type: "function",
+            name: name.value,
             vars: delimited("(", ")", ",", parse_varname),
-            body: parse_expression()
+            body: read_block(null, "end_function", parse_expression)
         };
     }
     function parse_bool() {
@@ -290,21 +313,16 @@ function parse(input) {
     }
     function parse_atom() {
         return maybe_call(function(){
-            if (is_punc("(")) {
-                input.next();
+            if (skip_punc("(", true)) {
                 var exp = parse_expression();
                 skip_punc(")");
                 return exp;
             }
-            if (is_punc("{")) return parse_prog();
-            if (is_kw("var")) return parse_new_var();
-            if (is_kw("if")) return parse_if();
-            if (is_kw("while")) return parse_while();
+            if (skip_kw("var", true)) return parse_new_var();
+            if (skip_kw("if", true)) return parse_if();
+            if (skip_kw("while", true)) return parse_while();
             if (is_kw("true") || is_kw("false")) return parse_bool();
-            if (is_kw("lambda") || is_kw("λ")) {
-                input.next();
-                return parse_lambda();
-            }
+            if (skip_kw("function", true)) return parse_function();
             var tok = input.next();
             if (tok.type == "var" || tok.type == "num" || tok.type == "string")
                 return tok;
@@ -317,12 +335,6 @@ function parse(input) {
             prog.push(parse_expression());
             if (!input.eof()) skip_punc("\n");
         }
-        return { type: "prog", prog: prog };
-    }
-    function parse_prog() {
-        var prog = delimited("{", "}", "\n", parse_expression);
-        if (prog.length == 0) return FALSE;
-        if (prog.length == 1) return prog[0];
         return { type: "prog", prog: prog };
     }
     function parse_expression() {
@@ -367,6 +379,10 @@ Environment.prototype = {
         return (scope || this).vars[name] = value;
     },
     def: function(name, type, value) {
+        if (this.vars[name]){
+            if (type != "function") type = "variable";
+            throw new Error("Redefinition of " + type + " " + name);
+          }
         return this.vars[name] = {
           type: type,
           value: value
@@ -403,11 +419,11 @@ function evaluate(exp, env) {
                         evaluate(exp.left, env),
                         evaluate(exp.right, env));
 
-      case "lambda":
-        return make_lambda(env, exp);
+      case "function":
+        return make_function(env, exp);
 
       case "if":
-        var cond = evaluate(exp.cond, env);
+        var cond = evaluate(exp.cond, env).value;
         if (cond !== false) return evaluate(exp.then, env);
         return exp.else ? evaluate(exp.else, env) : false;
 
@@ -463,14 +479,18 @@ function apply_op(op, a, b) {
     throw new Error("Can't apply operator " + op);
 }
 
-function make_lambda(env, exp) {
+function make_function(env, exp) {
     function lambda() {
         var names = exp.vars;
         var scope = env.extend();
-        for (var i = 0; i < names.length; ++i)
-            scope.def(names[i], i < arguments.length ? arguments[i] : false);
+        if (arguments.length != names.length)
+          throw new Error("Calling function \"" + exp.name + "\" with improper number of arguments");
+        for (var i = 0; i < names.length; ++i){
+            scope.def(names[i], arguments[i].type, arguments[i].value);
+          }
         return evaluate(exp.body, scope);
     }
+    env.def(exp.name, "function", lambda);
     return lambda;
 }
 
@@ -508,6 +528,7 @@ if (typeof process != "undefined") (function(){
     });
     process.stdin.on("end", function(){
         var ast = parse(TokenStream(InputStream(code)));
+        print_ast(ast);
         evaluate(ast, globalEnv);
     });
 })();

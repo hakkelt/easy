@@ -1,16 +1,18 @@
-var: a,b:num,
-		 c,d, e : string
+var:
+	sz1,sz2:num
 
-a = 1
-b = 10
-c = "asdf"
+sz1 = 1
+sz2 = 10
 
-while a <= b {
-      print(a)
+function kiir(a, b)
+	while a <= b
+	      print(a)
+	      if a < b then
+					 print(", ") // asdfasdf
+				end_if
+	      a = a + 1
+	end_while
+end_function
 
-
-      print(", ")
-      a = a + 1
-    }
-		
+kiir(sz1, sz2)
 println("")
