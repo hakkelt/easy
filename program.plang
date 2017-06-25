@@ -1,9 +1,8 @@
 var:
-	sz1,sz2:num,
-	sz1:string
+	a,b:num
 
-sz1 = 1
-sz2 = 10
+a = 1
+b = 10
 
 function kiir(a, b)
 	while a <= b
@@ -15,5 +14,5 @@ function kiir(a, b)
 	end_while
 end_function
 
-kiir(sz1, sz2)
+kiir(a, 10)
 println("")

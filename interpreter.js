@@ -33,7 +33,7 @@ function InputStream(input) {
 function TokenStream(input) {
     var current = null;
     var keywords =
-    " if then else end_if function end_function true false while end_while var num string bool ";
+    " if then else end_if function end_function true false while end_while var num string bool and or ";
     return {
         next  : next,
         peek  : peek,
@@ -55,7 +55,7 @@ function TokenStream(input) {
         return is_id_start(ch) || "0123456789".indexOf(ch) >= 0;
     }
     function is_op_char(ch) {
-        return "+-*/%=&|<>!".indexOf(ch) >= 0;
+        return "+-*/%=<>!&|".indexOf(ch) >= 0;
     }
     function is_punc(ch) {
         return ":,(){}[]\n".indexOf(ch) >= 0;
@@ -322,10 +322,10 @@ function parse(input) {
         return {
             type : "function",
             name : name.value,
-            vars : delimited("(", ")", ",", parse_varname),
-            body : read_block(null, "end_function", parse_expression),
             line : input.line(),
-            col  : input.col()
+            col  : input.col(),
+            vars : delimited("(", ")", ",", parse_varname),
+            body : read_block(null, "end_function", parse_expression)
         };
     }
     function parse_bool() {
@@ -391,10 +391,11 @@ Environment.prototype = {
         }
     },
     get: function(name) {
-        if (name.value in this.vars)
+        if (name.value in this.vars){
             if (!this.vars[name.value])
                 croak("Variable not initialized: " + name.value, name);
             return this.vars[name.value];
+        }
         croak("Undefined variable " + name.value, name);
     },
     set: function(name, value) {
@@ -402,16 +403,16 @@ Environment.prototype = {
         if (!scope && this.parent)
             croak("Undefined variable " + name, exp);
         var variable = (scope || this).vars[name];
-        if (variable.type != value.type)
+        if (variable.type !== value.type)
             croak("Type mismatch: " + name + " is type of " + variable.type
               + " and " + value.value + " is type of " + value.type, value);
         return (scope || this).vars[name] = value;
     },
     def: function(name, value) {
-        if (this.vars[name]){
-            if (value.type != "function") type = "variable";
+        if (!!this.vars.length && name in this.vars){
+            if (value.type !== "function") type = "variable";
             croak("Redefinition of " + type + " " + name, value);
-          }
+        }
         return this.vars[name] = {
           type: value.type,
           value: value.value
@@ -420,58 +421,6 @@ Environment.prototype = {
 };
 
 function evaluate(exp, env) {
-    function apply_op(op, a, b) {
-        function num(x) {
-            if (x.type !== "num")
-                croak("Expected number, but got " + x.value, x);
-            return x.value;
-        }
-        function div(x) {
-            if (num(x) == 0)
-                croak("Divide by zero", x);
-            return x.value;
-        }
-        switch (op) {
-          case "+": return {type: "num", value: num(a) + num(b)};
-          case "-": return {type: "num", value: num(a) - num(b)};
-          case "*": return {type: "num", value: num(a) * num(b)};
-          case "/": return {type: "num", value: num(a) / div(b)};
-          case "%": return {type: "num", value: num(a) % div(b)};
-          case "&&": return {type: "bool", value: a !== false && b};
-          case "||": return {type: "bool", value: a !== false ? a : b};
-          case "<": return {type: "bool", value: num(a) < num(b)};
-          case ">": return {type: "bool", value: num(a) > num(b)};
-          case "<=": return {type: "bool", value: num(a) <= num(b)};
-          case ">=": return {type: "bool", value: num(a) >= num(b)};
-          case "==": return {type: "bool", value: a === b};
-          case "!=": return {type: "bool", value: a !== b};
-        }
-        croak("Can't apply operator " + op, a);
-    }
-
-    function wrap(type, value, pos) {
-      return {
-          type  : type,
-          value : value,
-          line  : pos.line
-      }
-    }
-
-    function make_function(env, exp) {
-        function lambda() {
-            var names = exp.vars;
-            var scope = env.extend();
-            if (arguments.length != names.length)
-              croak("Calling function \"" + exp.name + "\" with improper number of arguments", exp);
-            for (var i = 0; i < names.length; ++i){
-                scope.def(names[i], arguments[i]);
-              }
-            return evaluate(exp.body, scope);
-        }
-        env.def(exp.name, wrap("function", lambda, exp));
-        return lambda;
-    }
-
     switch (exp.type) {
       case "num":
       case "string":
@@ -485,7 +434,6 @@ function evaluate(exp, env) {
         var val = false;
         exp.vars.forEach(function(one_type) {
           one_type.names.forEach(function(var_name) {
-            print_ast(one_type);
             val = env.def(var_name, wrap(one_type.type, null, one_type))
           });
         });
@@ -497,9 +445,11 @@ function evaluate(exp, env) {
         return env.set(exp.left.value, evaluate(exp.right, env));
 
       case "binary":
+      var left  = evaluate(exp.left,  env);
+      var right = evaluate(exp.right, env);
         return apply_op(exp.operator,
-                        evaluate(exp.left, env),
-                        evaluate(exp.right, env));
+                        wrap(left.type,  left.value,  exp),
+                        wrap(right.type, right.value, exp));
 
       case "function":
         return make_function(env, exp);
@@ -528,8 +478,62 @@ function evaluate(exp, env) {
         }));
 
       default:
-        tcroak("I don't know how to evaluate " + exp.type, exp);
+        croak("I don't know how to evaluate " + exp.type, exp);
     }
+}
+
+function apply_op(op, a, b) {
+    function num(x) {
+        if (x.type !== "num"){
+            if (x.type === "string") x.value = "\"" + x.value + "\"";
+            croak("Expected number, but got " + x.value, x);
+        }
+        return x.value;
+    }
+    function div(x) {
+        if (num(x) == 0)
+            croak("Divide by zero", x);
+        return x.value;
+    }
+    switch (op) {
+      case "+": return {type: "num", value: num(a) + num(b)};
+      case "-": return {type: "num", value: num(a) - num(b)};
+      case "*": return {type: "num", value: num(a) * num(b)};
+      case "/": return {type: "num", value: num(a) / div(b)};
+      case "%": return {type: "num", value: num(a) % div(b)};
+      case "&&": return {type: "bool", value: a !== false && b};
+      case "||": return {type: "bool", value: a !== false ? a : b};
+      case "<": return {type: "bool", value: num(a) < num(b)};
+      case ">": return {type: "bool", value: num(a) > num(b)};
+      case "<=": return {type: "bool", value: num(a) <= num(b)};
+      case ">=": return {type: "bool", value: num(a) >= num(b)};
+      case "==": return {type: "bool", value: a === b};
+      case "!=": return {type: "bool", value: a !== b};
+    }
+    croak("Can't apply operator " + op, a);
+}
+
+function wrap(type, value, pos=null) {
+  return {
+      type  : type,
+      value : value,
+      line  : pos ? pos.line : null
+  }
+}
+
+function make_function(env, exp) {
+    function lambda() {
+        var names = exp.vars;
+        var scope = env.extend();
+        if (arguments.length != names.length)
+            croak("Calling function \"" + exp.name + "\" with improper number of arguments", exp);
+        for (var i = 0; i < names.length; ++i){
+            scope.def(names[i], wrap(arguments[i].type, arguments[i].value, exp));
+        }
+        return evaluate(exp.body, scope);
+    }
+    env.def(exp.name, wrap("function", lambda, exp));
+    return lambda;
 }
 
 function croak(msg, exp) {
@@ -556,12 +560,12 @@ globalEnv.def("time", "function", function(func){
 
 if (typeof process != "undefined") (function(){
     var util = require("util");
-    globalEnv.def("println", "function", function(val){
+    globalEnv.def("println", wrap("function", function(val){
         process.stdout.write(val.value.toString() + '\n');
-    });
-    globalEnv.def("print", "function", function(val){
+    }));
+    globalEnv.def("print", wrap("function", function(val){
         process.stdout.write(val.value.toString());
-    });
+    }));
     var code = "";
     process.stdin.setEncoding("utf8");
     process.stdin.on("readable", function(){
@@ -570,7 +574,7 @@ if (typeof process != "undefined") (function(){
     });
     process.stdin.on("end", function(){
         var ast = parse(TokenStream(InputStream(code)));
-        print_ast(ast);
+        //print_ast(ast);
         evaluate(ast, globalEnv);
     });
 })();
