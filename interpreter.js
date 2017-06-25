@@ -132,10 +132,15 @@ function TokenStream(input) {
             type  : "punc",
             value : input.next()
         };
-        if (is_op_char(ch)) return {
+        if (is_op_char(ch)) {
+          var op = read_while(is_op_char);
+          if (op == "=")
+              input.croak("Ambigous operator: \"=\" (use \"←\" for assignment and \"==\" for equality check)")
+          return {
             type  : "op",
-            value : read_while(is_op_char)
-        };
+            value : op
+          };
+        }
         input.croak("Can't handle character: " + ch);
     }
     function peek() {
@@ -209,24 +214,6 @@ function parse(input) {
     }
     function unexpected() {
         input.croak("Unexpected token: " + JSON.stringify(input.peek()));
-    }
-    function maybe_binary(left, my_prec) {
-        var tok = is_op();
-        if (tok) {
-            var his_prec = PRECEDENCE[tok.value];
-            if (his_prec > my_prec) {
-                input.next();
-                return maybe_binary({
-                    type     : tok.value == "←" ? "assign" : "binary",
-                    operator : tok.value,
-                    left     : left,
-                    right    : maybe_binary(parse_atom(), his_prec),
-                    line     : input.line(),
-                    col      : input.col()
-                }, my_prec);
-            }
-        }
-        return left;
     }
     function delimited(start, stop, separator, parser) {
         var a = [], first = true;
@@ -340,12 +327,30 @@ function parse(input) {
             col   : input.col()
         };
     }
+    function maybe_binary(left, my_prec) {
+        var tok = is_op();
+        if (tok) {
+            var his_prec = PRECEDENCE[tok.value];
+            if (his_prec > my_prec) {
+                input.next();
+                return maybe_binary({
+                    type     : tok.value == "←" ? "assign" : "binary",
+                    operator : tok.value,
+                    left     : left,
+                    right    : maybe_binary(parse_atom(), his_prec),
+                    line     : input.line(),
+                    col      : input.col()
+                }, my_prec);
+            }
+        }
+        return left;
+    }
     function maybe_call(expr) {
         expr = expr();
         return is_punc("(") ? parse_call(expr) : expr;
     }
     function parse_atom() {
-        var ret = maybe_call(function(){
+        return maybe_call(function(){
             if (skip_punc("(", true)) {
                 var exp = parse_expression();
                 skip_punc(")");
@@ -361,8 +366,6 @@ function parse(input) {
                 return tok;
             unexpected();
         });
-        print_ast(ret);
-        return ret;
     }
     function parse_toplevel() {
         var prog = [];
@@ -427,6 +430,7 @@ Environment.prototype = {
 };
 
 function evaluate(exp, env) {
+    //print_ast(exp);
     switch (exp.type) {
       case "num":
       case "string":
@@ -462,7 +466,7 @@ function evaluate(exp, env) {
 
       case "if":
         var cond = evaluate(exp.cond, env).value;
-        if (cond !== false) return evaluate(exp.then, env);
+        if (cond != false) return evaluate(exp.then, env);
         return exp.else ? evaluate(exp.else, env) : false;
 
       case "while":
@@ -501,20 +505,27 @@ function apply_op(op, a, b) {
             croak("Divide by zero", x);
         return x.value;
     }
+    function bool(x) {
+        if (x.type !== "bool"){
+            if (x.type === "string") x.value = "\"" + x.value + "\"";
+            croak("Expected bool, but got " + x.value, x);
+        }
+        return x.value;
+    }
     switch (op) {
       case "+": return {type: "num", value: num(a) + num(b)};
       case "-": return {type: "num", value: num(a) - num(b)};
       case "*": return {type: "num", value: num(a) * num(b)};
       case "/": return {type: "num", value: num(a) / div(b)};
       case "%": return {type: "num", value: num(a) % div(b)};
-      case "and": return {type: "bool", value: a !== false && b};
-      case "or": return {type: "bool", value: a !== false ? a : b};
+      case "and": return {type: "bool", value: bool(a) !== false && bool(b)};
+      case "or": return {type: "bool", value: bool(a) !== false ? bool(a) : bool(b)};
       case "<": return {type: "bool", value: num(a) < num(b)};
       case ">": return {type: "bool", value: num(a) > num(b)};
       case "<=": return {type: "bool", value: num(a) <= num(b)};
       case ">=": return {type: "bool", value: num(a) >= num(b)};
-      case "==": return {type: "bool", value: a === b};
-      case "!=": return {type: "bool", value: a !== b};
+      case "==": return {type: "bool", value: bool(a) === bool(b)};
+      case "!=": return {type: "bool", value: bool(a) !== bool(b)};
     }
     croak("Can't apply operator " + op, a);
 }
@@ -580,7 +591,7 @@ if (typeof process != "undefined") (function(){
     });
     process.stdin.on("end", function(){
         var ast = parse(TokenStream(InputStream(code)));
-        //print_ast(ast);
+        print_ast(ast);
         evaluate(ast, globalEnv);
     });
 })();

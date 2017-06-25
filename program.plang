@@ -9,6 +9,8 @@ function kiir(a, b)
 	      print(a)
 	      if a < b and a < 20 then
 					 print(", ") // asdfasdf
+				else
+					 print(" :)")
 				end_if
 	      a ← a + 1
 	end_while
