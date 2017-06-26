@@ -1,4 +1,7 @@
-var: a,B:num
+variables:
+	a,b:numbers,
+	c:string,
+	d:array of numbers
 
 A ← 1
 b ← 10

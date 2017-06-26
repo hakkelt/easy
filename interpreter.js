@@ -32,8 +32,9 @@ function InputStream(input) {
 
 function TokenStream(input) {
     var current = null;
-    var keywords = " if then else_if else end_if function end_function \
-     true false while end_while var num string bool and or ";
+    var keywords = " if then else_if else end_if function end_function true false \
+       while end_while variables number numbers string strings bool bools \
+        array arrays of and or ";
     var op_keywords = " and or not ";
     return {
         next  : next,
@@ -71,6 +72,8 @@ function TokenStream(input) {
         return str;
     }
     function read_number() {
+        var line = input.line();
+        var col  = input.col();
         var has_dot = false;
         var number = read_while(function(ch){
             if (ch == ".") {
@@ -80,13 +83,24 @@ function TokenStream(input) {
             }
             return is_digit(ch);
         });
-        return { type: "num", value: parseFloat(number) };
+        return {
+            type      : "number",
+            value     : parseFloat(number),
+            dimension : 0,
+            line      : line,
+            col       : col
+        };
     }
     function read_ident() {
+        var line = input.line();
+        var col  = input.col();
         var id = read_while(is_id);
         return {
-            type  : kw_op(id) ? "op" : (is_keyword(id) ? "kw" : "var"),
-            value : id
+            type      : is_kw_op(id) ? "op" : (is_keyword(id) ? "kw" : "var"),
+            value     : id,
+            dimension : 0,
+            line      : line,
+            col       : col
         };
     }
     function read_escaped(end) {
@@ -108,13 +122,21 @@ function TokenStream(input) {
         return str;
     }
     function read_string() {
-        return { type: "string", value: read_escaped('"') };
+        var line = input.line();
+        var col  = input.col();
+        return {
+            type      : "string",
+            value     : read_escaped('"'),
+            dimension : 0,
+            line      : line,
+            col       : col
+        };
     }
     function skip_comment() {
         read_while(function(ch){ return ch != "\n" });
         input.next();
     }
-    function kw_op(token) {
+    function is_kw_op(token) {
         return op_keywords.indexOf(" " + token + " ") >= 0;
     }
     function read_next() {
@@ -128,9 +150,13 @@ function TokenStream(input) {
         if (ch == '"') return read_string();
         if (is_digit(ch)) return read_number();
         if (is_id_start(ch)) return read_ident();
+        var line = input.line();
+        var col  = input.col();
         if (is_punc(ch)) return {
             type  : "punc",
-            value : input.next()
+            value : input.next(),
+            line      : line,
+            col       : col
         };
         if (is_op_char(ch)) {
           var op = read_while(is_op_char);
@@ -138,27 +164,23 @@ function TokenStream(input) {
               input.croak("Ambigous operator: \"=\" (use \"←\" for assignment and \"==\" for equality check)")
           return {
             type  : "op",
-            value : op
+            value : op,
+            line      : line,
+            col       : col
           };
         }
         input.croak("Can't handle character: " + ch);
     }
     function peek() {
-        return current || (current = appendPosition(read_next()));
+        return current || (current = read_next());
     }
     function next() {
         var tok = current;
         current = null;
-        return tok || appendPosition(read_next());
+        return tok || read_next();
     }
     function eof() {
         return peek() == null;
-    }
-    function appendPosition(token) {
-      if (!token) return null;
-      token.line   = input.line();
-      token.column = input.col();
-      return token;
     }
 }
 
@@ -171,8 +193,14 @@ function parse(input) {
         "+": 10, "-": 10,
         "*": 20, "/": 20, "%": 20,
     };
-    var VAR_TYPES = " num string bool ";
-    var FALSE = { type: "bool", value: false };
+    var VAR_TYPES = " number string bool array ";
+    var FALSE = {
+        type      : "bool",
+        value     : false,
+        dimension : 0,
+        line      : input.line(),
+        col       : input.col()
+    };
     return parse_toplevel();
     function is_punc(ch) {
         var tok = input.peek();
@@ -251,33 +279,43 @@ function parse(input) {
         if (!skip_punc(",", true)) return ret;
       }
     }
+    function plural_to_singular(type) {
+        if (type.value.endsWith("s")) type.value = type.value.slice(0, -1);
+        return type;
+    }
     function parse_varline() {
       var names = delimited(null, ":", ",", parse_varname);
-      var type = input.next();
+      var type = plural_to_singular(input.next());
       if (type.type != "kw" || VAR_TYPES.indexOf(" " + type.value + " ") == -1)
-        input.croak("Expecting variable type name");
+          input.croak("Expecting variable type name");
+      var dimension = 0;
+      while (type.value == "array") {
+          skip_kw("of");
+          type = plural_to_singular(input.next());
+          if (type.type != "kw" || VAR_TYPES.indexOf(" " + type.value + " ") == -1)
+            input.croak("Expecting variable type name ");
+          dimension++;
+      }
       return {
-        names : names,
-        type  : type.value.toLowerCase(),
-        line  : input.line(),
-        col   : input.col()
+          names      : names,
+          dimension  : dimension,
+          type       : type.value.toLowerCase(),
+          line       : input.line(),
+          col        : input.col()
       };
     }
     function parse_varname() {
         var name = input.next();
         if (name.type != "var") input.croak("Expecting variable name");
-        return name.value.toLowerCase();
+        return name.value;
     }
     function delimited_kw(start, stop, parser) {
         var a = [];
         if (start) skip_kw(start);
         while (!input.eof()) {
             if (skip_punc("\n", true)) continue;
-            for (var i = 0; i < stop.length; i++) {
-              if (is_kw(stop[i])) {
-                  return a;
-              }
-            }
+            for (var i = 0; i < stop.length; i++)
+              if (is_kw(stop[i])) return a;
             a.push(parser());
         }
         return a;
@@ -333,10 +371,11 @@ function parse(input) {
     }
     function parse_bool() {
         return {
-            type  : "bool",
-            value : input.next().value == "true",
-            line  : input.line(),
-            col   : input.col()
+            type      : "bool",
+            value     : input.next().value == "true",
+            dimension : 0,
+            line      : input.line(),
+            col       : input.col()
         };
     }
     function maybe_binary(left, my_prec) {
@@ -348,9 +387,9 @@ function parse(input) {
                 return maybe_binary({
                     type     : tok.value == "←" ? "assign" : "binary",
                     operator : tok.value,
-                    left     : left,
                     line     : input.line(),
                     col      : input.col(),
+                    left     : left,
                     right    : maybe_binary(parse_atom(), his_prec)
                 }, my_prec);
             }
@@ -368,13 +407,13 @@ function parse(input) {
                 skip_punc(")");
                 return exp;
             }
-            if (skip_kw("var", true)) return parse_new_var();
+            if (skip_kw("variables", true)) return parse_new_var();
             if (skip_kw("if", true)) return parse_if();
             if (skip_kw("while", true)) return parse_while();
             if (is_kw("true") || is_kw("false")) return parse_bool();
             if (skip_kw("function", true)) return parse_function();
             var tok = input.next();
-            if (tok.type == "var" || tok.type == "num" || tok.type == "string")
+            if (tok.type == "var" || tok.type == "number" || tok.type == "string")
                 return tok;
             unexpected();
         });
@@ -424,26 +463,40 @@ Environment.prototype = {
         if (!scope && this.parent)
             croak("Undefined variable " + name, exp);
         var variable = (scope || this).vars[name.toLowerCase()];
-        if (variable.type !== value.type)
-            croak("Type mismatch: " + name + " is type of " + variable.type
-              + " and " + value.value + " is type of " + value.type, value);
+        if (variable.dimension !== value.dimension) {
+            if (value.type == "string") value.value = "\"" + value.value + "\"";
+            croak("Dimension mismatch: Variable '" + name + "' is " +
+              (variable.dimension == 0 ? variable.type :
+                (variable.dimension > 1 ? variable.dimension + "D " : "") + "array")
+              + " and '" + value.value + "' is " +
+                (value.dimension == 0 ? value.type :
+                  (value.dimension > 1 ? value.dimension + "D " : "") + "array "), variable);
+        }
+        if (variable.type !== value.type) {
+            if (value.type == "string") value.value = "\"" + value.value + "\"";
+            croak("Type mismatch: Variable '" + name + "' is type of '" + variable.type
+              + "' and " + value.value + " is type of '" + value.type + "'", value);
+        }
         return (scope || this).vars[name.toLowerCase()] = value;
     },
     def: function(name, value) {
-        if (!!this.vars.length && name.toLowerCase() in this.vars){
+        if (Object.prototype.hasOwnProperty.call(this.vars, name.toLowerCase())) {
             if (value.type !== "function") type = "variable";
-            croak("Redefinition of " + type + " " + name, value);
+            croak("Re-definition of " + type + " " + name, value);
         }
         return this.vars[name.toLowerCase()] = {
-          type: value.type,
-          value: value.value
+          type      : value.type,
+          value     : value.value,
+          dimension : value.dimension,
+          line      : value.line,
+          col       : value.col
         };
     }
 };
 
 function evaluate(exp, env) {
     switch (exp.type.toLowerCase()) {
-      case "num":
+      case "number":
       case "string":
       case "bool":
         return exp;
@@ -468,9 +521,9 @@ function evaluate(exp, env) {
       case "binary":
         var left  = evaluate(exp.left,  env);
         var right = evaluate(exp.right, env);
-        return apply_op(exp.operator,
-                        wrap(left.type,  left.value,  exp),
-                        wrap(right.type, right.value, exp));
+        return apply_op(exp,
+                        wrap(left.type,  left.value,  left),
+                        wrap(right.type, right.value, right));
 
       case "function":
         return make_function(env, exp);
@@ -506,7 +559,7 @@ function evaluate(exp, env) {
 
 function apply_op(op, a, b) {
     function num(x) {
-        if (x.type !== "num"){
+        if (x.type !== "number"){
             if (x.type === "string") x.value = "\"" + x.value + "\"";
             croak("Expected number, but got " + x.value, x);
         }
@@ -524,29 +577,44 @@ function apply_op(op, a, b) {
         }
         return x.value;
     }
-    switch (op) {
-      case "+": return {type: "num", value: num(a) + num(b)};
-      case "-": return {type: "num", value: num(a) - num(b)};
-      case "*": return {type: "num", value: num(a) * num(b)};
-      case "/": return {type: "num", value: num(a) / div(b)};
-      case "%": return {type: "num", value: num(a) % div(b)};
-      case "and": return {type: "bool", value: bool(a) !== false && bool(b)};
-      case "or": return {type: "bool", value: bool(a) !== false ? bool(a) : bool(b)};
-      case "<": return {type: "bool", value: num(a) < num(b)};
-      case ">": return {type: "bool", value: num(a) > num(b)};
-      case "<=": return {type: "bool", value: num(a) <= num(b)};
-      case ">=": return {type: "bool", value: num(a) >= num(b)};
-      case "==": return {type: "bool", value: a.value === b.value};
-      case "!=": return {type: "bool", value: a.value !== b.value};
+    function wrap_op_result(type, value, expr) {
+        return {
+            type      : type,
+            value     : value,
+            dimension : 0,
+            line      : expr.line,
+            col       : null
+        };
+    }
+    if (a.dimension > 0)
+        croak("Operator '" + op.operator + "' can not be applied on arrays and '" + a.value + "' is an array", a)
+    if (b.dimension > 0)
+        croak("Operator '" + op.operator + "' can not be applied on arrays and '" + b.value + "' is an array", b)
+    switch (op.operator) {
+      case "+"  : return wrap_op_result("number", num(a) + num(b), op);
+      case "-"  : return wrap_op_result("number", num(a) - num(b), op);
+      case "*"  : return wrap_op_result("number", num(a) * num(b), op);
+      case "/"  : return wrap_op_result("number", num(a) / num(b), op);
+      case "%"  : return wrap_op_result("number", num(a) % num(b), op);
+      case "and": return wrap_op_result("bool", bool(a) !== false && bool(b), op);
+      case "or" : return wrap_op_result("bool", bool(a) !== false ? bool(a) : bool(b), op);
+      case "<"  : return wrap_op_result("bool", num(a) < num(b), op);
+      case ">"  : return wrap_op_result("bool", num(a) > num(b), op);
+      case "<=" : return wrap_op_result("bool", num(a) <= num(b), op);
+      case ">=" : return wrap_op_result("bool", num(a) >= num(b), op);
+      case "==" : return wrap_op_result("bool", a.value === b.value, op);
+      case "!=" : return wrap_op_result("bool", a.value !== b.value, op);
     }
     croak("Can't apply operator " + op, a);
 }
 
-function wrap(type, value, pos=null) {
+function wrap(type, value, expr=null) {
   return {
-      type  : type,
-      value : value,
-      line  : pos ? pos.line : null
+      type      : type,
+      value     : value,
+      dimension : expr ? (expr.dimension ? expr.dimension : 0) : 0,
+      line      : expr ? expr.line : null,
+      col       : null
   }
 }
 
