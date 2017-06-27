@@ -32,10 +32,14 @@ function InputStream(input) {
 
 function TokenStream(input) {
     var current = null;
-    var keywords = " if then else_if else end_if function end_function true false \
-       while end_while variables number numbers string strings bool bools \
-        array arrays of and or ";
+    var double_keywords_begin = " else end ";
+    var variable_types = " array number string bool ";
+    var variable_types_plural = " arrays numbers strings bools ";
+    var structural_keywords = " if then function while variables of ";
     var op_keywords = " and or not ";
+    var bool_literals = " true false ";
+    var keywords = double_keywords_begin + variable_types + variable_types_plural
+        + structural_keywords + op_keywords + bool_literals;
     return {
         next  : next,
         peek  : peek,
@@ -54,7 +58,7 @@ function TokenStream(input) {
         return /[a-z_]/i.test(ch);
     }
     function is_id(ch) {
-        return is_id_start(ch) || "0123456789".indexOf(ch) >= 0;
+        return is_id_start(ch) || is_digit(ch);
     }
     function is_op_char(ch) {
         return "+-*/%=<>!←".indexOf(ch) >= 0;
@@ -95,13 +99,15 @@ function TokenStream(input) {
         var line = input.line();
         var col  = input.col();
         var id = read_while(is_id);
-        return {
+        var ret = {
             type      : is_kw_op(id) ? "op" : (is_keyword(id) ? "kw" : "var"),
-            value     : id,
-            dimension : 0,
+            value     : double_keyword(id),
             line      : line,
             col       : col
         };
+        if (!is_keyword(id))
+            ret.dimension = 0;
+        return ret;
     }
     function read_escaped(end) {
         var escaped = false, str = "";
@@ -139,6 +145,29 @@ function TokenStream(input) {
     function is_kw_op(token) {
         return op_keywords.indexOf(" " + token + " ") >= 0;
     }
+    function double_keyword(kw) {
+        if (double_keywords_begin.indexOf(" " + kw.toLowerCase() + " ") == -1)
+            return kw;
+        var next;
+        do {
+          next = input.peek();
+        } while (is_whitespace(next) && input.next());
+        if (kw.toLowerCase() == "else") {
+            if (next == "\n")
+                return kw;
+            next = read_next();
+            if (next.value.toLowerCase() == "if")
+                return kw + " " + next.value;
+            else
+                input.croak("Keyword 'if' or linebreak is expected after keyword 'else', but got " + next.value);
+        }
+        next = read_next();
+        if (kw.toLowerCase() == "end")
+            if (["if", "while", "function"].indexOf(next.value.toLowerCase()) >= 0)
+                return kw + " " + next.value.toLowerCase();
+            else
+                input.croak("Keyword 'end' must be followed by either one of the following: if, while, function");
+    }
     function read_next() {
         read_while(is_whitespace);
         if (input.eof()) return null;
@@ -155,8 +184,8 @@ function TokenStream(input) {
         if (is_punc(ch)) return {
             type  : "punc",
             value : input.next(),
-            line      : line,
-            col       : col
+            line  : line,
+            col   : col
         };
         if (is_op_char(ch)) {
           var op = read_while(is_op_char);
@@ -165,8 +194,8 @@ function TokenStream(input) {
           return {
             type  : "op",
             value : op,
-            line      : line,
-            col       : col
+            line  : line,
+            col   : col
           };
         }
         input.croak("Can't handle character: " + ch);
@@ -285,13 +314,13 @@ function parse(input) {
     function parse_varline() {
       var names = delimited(null, ":", ",", parse_varname);
       var type = plural_to_singular(input.next());
-      if (type.type != "kw" || VAR_TYPES.indexOf(" " + type.value + " ") == -1)
+      if (type.type != "kw" || VAR_TYPES.indexOf(" " + type.value.toLowerCase() + " ") == -1)
           input.croak("Expecting variable type name");
       var dimension = 0;
-      while (type.value == "array") {
+      while (type.value.toLowerCase() == "array") {
           skip_kw("of");
           type = plural_to_singular(input.next());
-          if (type.type != "kw" || VAR_TYPES.indexOf(" " + type.value + " ") == -1)
+          if (type.type != "kw" || VAR_TYPES.indexOf(" " + type.value.toLowerCase() + " ") == -1)
             input.croak("Expecting variable type name ");
           dimension++;
       }
@@ -336,11 +365,14 @@ function parse(input) {
         };
         do {
             ret.cond.push(parse_expression());
-            ret.then.push(read_block("then", ["else_if", "else", "end_if"], parse_expression))
-        } while (skip_kw("else_if", true));
-        if (is_kw("else"))
-            ret.else = read_block("else", ["end_if"], parse_expression);
-        skip_kw("end_if");
+            skip_kw("then");
+            skip_punc("\n");
+            ret.then.push(read_block(null, ["else if", "else", "end if"], parse_expression));
+        } while (skip_kw("else if", true));
+        if (skip_kw("else") && skip_punc("\n"))
+            ret.else = read_block(null, ["end if"], parse_expression);
+        skip_kw("end if")
+        skip_punc("\n");
         return ret;
     }
     function parse_while() {
@@ -349,9 +381,9 @@ function parse(input) {
             line: input.line(),
             col : null,
             cond: parse_expression(),
-            body: read_block(null, ["end_while"], parse_expression)
+            body: read_block(null, ["end while"], parse_expression)
         };
-        skip_kw("end_while");
+        skip_kw("end while");
         return ret;
     }
     function parse_function() {
@@ -363,9 +395,9 @@ function parse(input) {
             line : input.line(),
             col  : input.col(),
             vars : delimited("(", ")", ",", parse_varname),
-            body : read_block(null, ["end_function"], parse_expression)
+            body : read_block(null, ["end function"], parse_expression)
         };
-        skip_kw("end_function");
+        skip_kw("end function");
         return ret;
     }
     function parse_bool() {

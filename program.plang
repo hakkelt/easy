@@ -1,7 +1,7 @@
 variables:
 	a,b:numbers,
 	c:string,
-	d:array of arrays of numbers
+	d:aRray of ArraYs OF numbers
 
 A ← 1
 b ← 10
@@ -12,14 +12,14 @@ Function Kiir(a, b)
 	      print(A)
 				IF A == 1 then
 					 print(" -> ")
-				else_if a < B and a > 0 Then
+				else if a < B and a > 0 Then
 					 print(", ") // comment
 				else
 					 print(" :)")
-				end_if
+				end if
 	      a ← a + 1
-	END_WHILE
-end_Function
+	END WHILE
+end Function
 
 kiir(a, 10)
 printLN("")
