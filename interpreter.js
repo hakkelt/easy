@@ -241,7 +241,7 @@ function parse(input) {
         else input.croak("Expecting operator: \"" + op + "\"");
     }
     function unexpected() {
-        input.croak("Unexpected token: " + JSON.stringify(input.peek()));
+        input.croak("Unexpected token: " + format(input.peek()));
     }
     function delimited(start, stop, separator, parser) {
         var a = [], first = true;
@@ -250,7 +250,6 @@ function parse(input) {
             if (is_punc(stop)) break;
             if (first) first = false; else skip_punc(separator);
             if (is_punc(stop)) break;
-            //if (separator == "\n" && is_punc("\n")) continue;
             a.push(parser());
         }
         skip_punc(stop);
@@ -260,9 +259,9 @@ function parse(input) {
         return {
             type : "call",
             func : func,
-            args : delimited("(", ")", ",", parse_expression),
             line : input.line(),
-            col  : input.col()
+            col  : input.col(),
+            args : delimited("(", ")", ",", parse_expression)
         };
     }
     function parse_new_var() {
@@ -406,7 +405,7 @@ function parse(input) {
         var value = delimited(null, "]", ",", parse_expression);
         for (var i = 0; i < value.length; i++)
             if (value[i].dimension != value[0].dimension)
-                croak("Inconsistent array definition: '" + value[i].value + "' is " +
+                croak("Inconsistent array definition: current element is " +
                   (value[i].dimension == 1 ? "array" :
                     (value[i].dimension > 0 ? value[i].dimension + "D array" : "scalar value"))
                    + ", but previous elements was " +
@@ -420,6 +419,20 @@ function parse(input) {
             value     : value,
             dimension : value[0].dimension + 1
         };
+    }
+    function maybe_array(token) {
+        if (skip_punc("[", true)) {
+            var ret = {
+                type  : "indexing",
+                array : token,
+                line  : input.line(),
+                col   : input.col(),
+                index : parse_expression()
+            };
+            skip_punc("]");
+            return maybe_array(ret);
+        }
+        return token;
     }
     function parse_atom() {
         return maybe_call(function(){
@@ -435,9 +448,8 @@ function parse(input) {
             if (is_kw("true") || is_kw("false")) return parse_bool();
             if (skip_kw("function", true)) return parse_function();
             var tok = input.next();
-            print_ast(tok);
             if (tok.type == "var" || tok.type == "number" || tok.type == "string")
-                return tok;
+                return maybe_array(tok);
             unexpected();
         });
     }
@@ -445,13 +457,12 @@ function parse(input) {
         var prog = [];
         while (!input.eof()) {
             prog.push(parse_expression());
-            if (!input.eof()) skip_punc("\n");
+            while(!input.eof() && skip_punc("\n", true));
         }
         return { type: "prog", prog: prog, line: 1, col: null };
     }
     function parse_expression() {
         return maybe_call(function(){
-            while(skip_punc("\n", true));
             return maybe_binary(parse_atom(), 0);
         });
     }
@@ -498,7 +509,7 @@ Environment.prototype = {
         if (variable.type !== value.type) {
             if (value.type == "string") value.value = "\"" + value.value + "\"";
             croak("Type mismatch: Variable '" + name + "' is type of '" + variable.type
-              + "' and " + value.value + " is type of '" + value.type + "'", value);
+              + "' and '" + format(value.value) + "' is type of '" + value.type + "'", value);
         }
         return (scope || this).vars[name.toLowerCase()] = value;
     },
@@ -541,9 +552,8 @@ function evaluate(exp, env) {
         var type = null;
         exp.value.forEach(function(expr){
             var new_value = evaluate(expr, env);
-            print_ast(new_value);
             if (type && type != new_value.type)
-                croak("Type mismatch: '" + new_value.value + "' is type of " +
+                croak("Type mismatch: '" + format(new_value.value) + "' is type of " +
                   new_value.type + ", but previous values was type of " + type, expr);
             else
                 type = new_value.type;
@@ -554,7 +564,7 @@ function evaluate(exp, env) {
 
       case "assign":
         if (exp.left.type != "var")
-            croak("Cannot assign to " + JSON.stringify(exp.left), exp);
+            croak("Cannot assign to " + format(exp.left), exp);
         return env.set(exp.left.value, evaluate(exp.right, env));
 
       case "binary":
@@ -563,6 +573,9 @@ function evaluate(exp, env) {
         return apply_op(exp,
                         wrap(left.type,  left.value,  left),
                         wrap(right.type, right.value, right));
+
+      case "indexing":
+        return indexing(exp, env);
 
       case "function":
         return make_function(env, exp);
@@ -600,7 +613,7 @@ function apply_op(op, a, b) {
     function num(x) {
         if (x.type !== "number"){
             if (x.type === "string") x.value = "\"" + x.value + "\"";
-            croak("Expected number, but got " + x.value, x);
+            croak("Expected number, but got " + x.type + " (" + format(x.value) + ")", x);
         }
         return x.value;
     }
@@ -612,7 +625,7 @@ function apply_op(op, a, b) {
     function bool(x) {
         if (x.type !== "bool"){
             if (x.type === "string") x.value = "\"" + x.value + "\"";
-            croak("Expected bool, but got " + x.value, x);
+            croak("Expected bool, but got " + x.type + " (" + format(x.value) + ")", x);
         }
         return x.value;
     }
@@ -626,9 +639,9 @@ function apply_op(op, a, b) {
         };
     }
     if (a.dimension > 0)
-        croak("Operator '" + op.operator + "' can not be applied on arrays and '" + a.value + "' is an array", a)
+        croak("Operator '" + op.operator + "' can not be applied on arrays and '" + format(a.value) + "' is an array", a)
     if (b.dimension > 0)
-        croak("Operator '" + op.operator + "' can not be applied on arrays and '" + b.value + "' is an array", b)
+        croak("Operator '" + op.operator + "' can not be applied on arrays and '" + format(b.value) + "' is an array", b)
     switch (op.operator) {
       case "+"  : return wrap_op_result("number", num(a) + num(b), op);
       case "-"  : return wrap_op_result("number", num(a) - num(b), op);
@@ -672,6 +685,27 @@ function make_function(env, exp) {
     return lambda;
 }
 
+function indexing(exp, env) {
+    var index = evaluate(exp.index, env);
+    if (index.type != "number")
+        croak("Indexing is possible only with numbers, and '" +
+          format(exp.index.value) + "' is type of " + exp.index.type, exp);
+    if (index.dimension != 0)
+        croak("Indexing is possible only with scalar, and '" +
+          format(exp.index.value) + "' is " +
+          (exp.index.dimension == 1 ? "array" : exp.index.dimension + "D array"), exp);
+    var array = evaluate(exp.array, env);
+    if (array.dimension == 0)
+        croak("Only arrays can be indexed, and '" + exp.array.value + "' is not an array", exp.array)
+    return {
+        type      : array.type,
+        dimension : array.dimension - 1,
+        value     : array.value[index.value],
+        line      : array.line,
+        col       : array.col
+    }
+}
+
 function croak(msg, exp) {
     throw new Error(msg + " (" + exp.line + ":" + null + ")");
 }
@@ -694,13 +728,22 @@ globalEnv.def("time", "function", function(func){
     }
 });
 
+function format(value, is_error_message=true) {
+    if (value.constructor === Array ||
+      (is_error_message && typeof value === "string") ||
+      typeof value === 'object')
+        return JSON.stringify(value);
+    return value.toString();
+}
+
 if (typeof process != "undefined") (function(){
     var util = require("util");
     globalEnv.def("println", wrap("function", function(val){
-        process.stdout.write(val.value.toString() + '\n');
+        process.stdout.write(format(val.value, false) + '\n');
     }));
     globalEnv.def("print", wrap("function", function(val){
-        process.stdout.write(val.value.toString());
+
+        process.stdout.write(format(val.value, false));
     }));
     var code = "";
     process.stdin.setEncoding("utf8");
