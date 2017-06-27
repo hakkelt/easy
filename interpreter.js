@@ -61,7 +61,7 @@ function TokenStream(input) {
         return is_id_start(ch) || is_digit(ch);
     }
     function is_op_char(ch) {
-        return "+-*/%=<>!←".indexOf(ch) >= 0;
+        return "+-*/%&=<>!←".indexOf(ch) >= 0;
     }
     function is_punc(ch) {
         return ":,()[]\n".indexOf(ch) >= 0;
@@ -218,6 +218,7 @@ function parse(input) {
         "←": 1,
         "or": 2,
         "and": 3,
+        "&" : 4,
         "<": 7, ">": 7, "<=": 7, ">=": 7, "==": 7, "!=": 7,
         "+": 10, "-": 10,
         "*": 20, "/": 20, "%": 20,
@@ -550,13 +551,16 @@ Environment.prototype = {
             if (value.type !== "function") type = "variable";
             croak("Re-definition of " + type + " " + name, value);
         }
-        return this.vars[name.toLowerCase()] = {
+        var ret = this.vars[name.toLowerCase()] = {
           type      : value.type,
           value     : value.value,
           dimension : value.dimension,
           line      : value.line,
           col       : value.col
         };
+        if (value.dimension)
+            ret.dimension = value.dimension;
+        return ret;
     }
 };
 
@@ -643,10 +647,8 @@ function evaluate(exp, env) {
 
 function apply_op(op, a, b) {
     function num(x) {
-        if (x.type !== "number"){
-            if (x.type === "string") x.value = "\"" + x.value + "\"";
+        if (x.type !== "number")
             croak("Expected number, but got " + x.type + " (" + format(x.value) + ")", x);
-        }
         return x.value;
     }
     function div(x) {
@@ -655,8 +657,12 @@ function apply_op(op, a, b) {
         return x.value;
     }
     function bool(x) {
-        if (x.type !== "bool"){
-            if (x.type === "string") x.value = "\"" + x.value + "\"";
+        if (x.type !== "bool")
+            croak("Expected bool, but got " + x.type + " (" + format(x.value) + ")", x);
+        return x.value;
+    }
+    function string(x) {
+        if (x.type !== "string"){
             croak("Expected bool, but got " + x.type + " (" + format(x.value) + ")", x);
         }
         return x.value;
@@ -680,6 +686,8 @@ function apply_op(op, a, b) {
       case "*"  : return wrap_op_result("number", num(a) * num(b), op);
       case "/"  : return wrap_op_result("number", num(a) / num(b), op);
       case "%"  : return wrap_op_result("number", num(a) % num(b), op);
+      case "&"  : return wrap_op_result("string", string(a) + string(b), op);
+      case "not": return wrap_op_result("bool", !bool(a), op);
       case "and": return wrap_op_result("bool", bool(a) !== false && bool(b), op);
       case "or" : return wrap_op_result("bool", bool(a) !== false ? bool(a) : bool(b), op);
       case "<"  : return wrap_op_result("bool", num(a) < num(b), op);
@@ -688,18 +696,23 @@ function apply_op(op, a, b) {
       case ">=" : return wrap_op_result("bool", num(a) >= num(b), op);
       case "==" : return wrap_op_result("bool", a.value === b.value, op);
       case "!=" : return wrap_op_result("bool", a.value !== b.value, op);
+      case "=<" : croak("Wrong operator: =< (use it in reverse order: <=)", op);
+      case "=>" : croak("Wrong operator: => (use it in reverse order: >=)", op);
+      case "=!" : croak("Wrong operator: =! (use it in reverse order: !=)", op);
     }
-    croak("Can't apply operator " + op, a);
+    croak("Can't apply operator " + op, op);
 }
 
 function wrap(type, value, expr=null) {
-  return {
+  var ret = {
       type      : type,
       value     : value,
-      dimension : expr ? (expr.dimension ? expr.dimension : 0) : 0,
       line      : expr ? expr.line : null,
       col       : null
-  }
+  };
+  if (expr)
+      ret.dimension = (expr.dimension ? expr.dimension : 0);
+  return ret;
 }
 
 function make_function(env, exp) {
@@ -751,15 +764,6 @@ function print_ast(ast) {
 
 var globalEnv = new Environment();
 
-globalEnv.def("time", "function", function(func){
-    try {
-        console.time("time");
-        return func();
-    } finally {
-        console.timeEnd("time");
-    }
-});
-
 function format(value, is_error_message=true) {
     if (value.constructor === Array ||
       (is_error_message && typeof value === "string") ||
@@ -768,15 +772,27 @@ function format(value, is_error_message=true) {
     return value.toString();
 }
 
+function add_function(name, func) {
+  globalEnv.def(name, wrap("function", func));
+}
+
 if (typeof process != "undefined") (function(){
     var util = require("util");
-    globalEnv.def("println", wrap("function", function(val){
-        process.stdout.write(format(val.value, false) + '\n');
-    }));
-    globalEnv.def("print", wrap("function", function(val){
-
-        process.stdout.write(format(val.value, false));
-    }));
+    add_function("printline", function(){
+        for (i = 0; i < arguments.length; i++){
+            process.stdout.write(format(arguments[i].value, false));
+            if (i < arguments.length - 1)
+                process.stdout.write(" ");
+        }
+        process.stdout.write("\n");
+    });
+    add_function("print", function(){
+        for (i = 0; i < arguments.length; i++){
+            process.stdout.write(format(arguments[i].value, false));
+            if (i < arguments.length - 1)
+                process.stdout.write(" ");
+        }
+    });
     var code = "";
     process.stdin.setEncoding("utf8");
     process.stdin.on("readable", function(){

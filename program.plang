@@ -1,4 +1,4 @@
-variables:
+varIables:
 	a,b:numbers,
 	c:string,
 	d:aRray of ArraYs OF numbers
@@ -6,6 +6,8 @@ variables:
 A ← 1
 b ← 10
 d ← [[2, 3, 5],[8,6]]
+
+variables: asdf:number
 
 Function Kiir(a, b)
 	WHILe a <= b
@@ -22,6 +24,6 @@ Function Kiir(a, b)
 end Function
 
 kiir(a, 10)
-printLN("")
-print(d[0][2])
-printLN("")
+printLiNe("")
+printline(d[0][2], "asdf")
+printLiNe("egyik szöveg" & " másik szöveg")
