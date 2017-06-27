@@ -1,11 +1,11 @@
 varIables:
 	a,b:numbers,
 	c:string,
-	d:aRray of ArraYs OF numbers
+	d:aRray of ArraYs of arrays OF numbers
 
 A ← 1
 b ← 10
-d ← [[2, 3, 5],[8,6]]
+d ← [[[2, 3, 5],[8,6],[1,2,3]],[[0]]]
 
 variables: asdf:number
 
@@ -23,7 +23,9 @@ Function Kiir(a, b)
 	END WHILE
 end Function
 
+d[0][0][0] ← 1000
+
 kiir(a, 10)
 printLiNe("")
-printline(d[0][2], "asdf")
+printline(d, "asdf")
 printLiNe("egyik szöveg" & " másik szöveg")

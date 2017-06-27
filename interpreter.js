@@ -457,7 +457,7 @@ function parse(input) {
         if (skip_punc("[", true)) {
             var ret = {
                 type  : "indexing",
-                array : token,
+                value : token,
                 line  : input.line(),
                 col   : input.col(),
                 index : parse_expression()
@@ -525,26 +525,24 @@ Environment.prototype = {
         }
         croak("Undefined variable " + name.value, name);
     },
-    set: function(name, value) {
-        var scope = this.lookup(name.toLowerCase());
+    set: function(name, value, pos) {
+        var scope = this.lookup(name.value.toLowerCase());
         if (!scope && this.parent)
-            croak("Undefined variable " + name, exp);
-        var variable = (scope || this).vars[name.toLowerCase()];
+            croak("Undefined variable " + name.value, exp);
+        var variable = (scope || this).vars[name.value.toLowerCase()];
         if (variable.dimension !== value.dimension) {
             if (value.type == "string") value.value = "\"" + value.value + "\"";
-            croak("Dimension mismatch: Variable '" + name + "' is " +
+            croak("Dimension mismatch: Variable '" + name.value + "' is " +
               (variable.dimension == 0 ? variable.type :
                 (variable.dimension > 1 ? variable.dimension + "D " : "") + "array")
               + " and '" + value.value + "' is " +
                 (value.dimension == 0 ? value.type :
-                  (value.dimension > 1 ? value.dimension + "D " : "") + "array "), variable);
+                  (value.dimension > 1 ? value.dimension + "D " : "") + "array "), pos);
         }
-        if (variable.type !== value.type) {
-            if (value.type == "string") value.value = "\"" + value.value + "\"";
-            croak("Type mismatch: Variable '" + name + "' is type of '" + variable.type
-              + "' and '" + format(value.value) + "' is type of '" + value.type + "'", value);
-        }
-        return (scope || this).vars[name.toLowerCase()] = value;
+        if (variable.type !== value.type)
+            croak("Type mismatch: Variable '" + name.value + "' is type of '" + variable.type
+              + "' and '" + format(value.value) + "' is type of '" + value.type + "'", pos);
+        return (scope || this).vars[name.value.toLowerCase()] = value;
     },
     def: function(name, value) {
         if (Object.prototype.hasOwnProperty.call(this.vars, name.toLowerCase())) {
@@ -599,9 +597,11 @@ function evaluate(exp, env) {
         return ret;
 
       case "assign":
-        if (exp.left.type != "var")
-            croak("Cannot assign to " + format(exp.left), exp);
-        return env.set(exp.left.value, evaluate(exp.right, env));
+        if (exp.left.type == "var")
+            return env.set(exp.left, evaluate(exp.right, env), exp);
+        if (exp.left.type == "indexing")
+            return array_assign(exp, env);
+        croak("Cannot assign to " + format(exp.left), exp);
 
       case "binary":
         var left  = evaluate(exp.left,  env);
@@ -673,7 +673,7 @@ function apply_op(op, a, b) {
             value     : value,
             dimension : 0,
             line      : expr.line,
-            col       : null
+            col       : expr.col
         };
     }
     if (a.dimension > 0)
@@ -687,7 +687,6 @@ function apply_op(op, a, b) {
       case "/"  : return wrap_op_result("number", num(a) / num(b), op);
       case "%"  : return wrap_op_result("number", num(a) % num(b), op);
       case "&"  : return wrap_op_result("string", string(a) + string(b), op);
-      case "not": return wrap_op_result("bool", !bool(a), op);
       case "and": return wrap_op_result("bool", bool(a) !== false && bool(b), op);
       case "or" : return wrap_op_result("bool", bool(a) !== false ? bool(a) : bool(b), op);
       case "<"  : return wrap_op_result("bool", num(a) < num(b), op);
@@ -708,7 +707,7 @@ function wrap(type, value, expr=null) {
       type      : type,
       value     : value,
       line      : expr ? expr.line : null,
-      col       : null
+      col       : expr ? expr.col : null
   };
   if (expr)
       ret.dimension = (expr.dimension ? expr.dimension : 0);
@@ -739,9 +738,14 @@ function indexing(exp, env) {
         croak("Indexing is possible only with scalar, and '" +
           format(exp.index.value) + "' is " +
           (exp.index.dimension == 1 ? "array" : exp.index.dimension + "D array"), exp);
-    var array = evaluate(exp.array, env);
+    var array = evaluate(exp.value, env);
     if (array.dimension == 0)
-        croak("Only arrays can be indexed, and '" + exp.array.value + "' is not an array", exp.array)
+        croak("Only arrays can be indexed, and '" + exp.value.value + "' is not an array", exp.value);
+    if (index.value < 0)
+        croak("Index cannot be negative, but " + index.value + " is given");
+    if (index.value >= array.value.length)
+        croak("Index is out of range: Index is " + index.value + ", and array '" +
+            get_array_name(exp).value + "' has length of " + array.value.length, exp);
     return {
         type      : array.type,
         dimension : array.dimension - 1,
@@ -751,8 +755,52 @@ function indexing(exp, env) {
     }
 }
 
+function get_indices(exp, env, indices) {
+    if (exp.type == "indexing")
+        indices = get_indices(exp.value,env,indices);
+    if (exp.index) indices.push(exp.index.value);
+    return indices;
+}
+
+function get_array_name(exp) {
+    while (exp.type != "var") exp = exp.value;
+    return exp;
+}
+
+function set_element(array, indices, value) {
+    if (indices.length == 1){
+        array[indices[0]] = value;
+        return [array];
+    }
+    var before = array.slice(0, indices[0]);
+    var after  = array.slice(indices[0] + 1);
+    var index  = indices.shift();
+    var middle = set_element(array[index],indices,value);
+    return [before.concat(middle).concat(after)];
+}
+
+function array_assign(exp, env) {
+    var left = evaluate(exp.left, env);
+    var right = evaluate(exp.right, env);
+    if (left.type !== right.type)
+        croak("Type mismatch: Left side of the assignment is type of " + left.type
+          + " and " + format(right.value) + " is type of " + right.type, exp);
+    if (left.dimension !== right.dimension)
+        croak("Dimension mismatch: Left side of the assignment is " +
+          (left.dimension > 0 ? left.dimension + "D array" : "scalar value")
+          + " and " + format(right.value) + " is " +
+            (right.dimension > 0 ? right.dimension + "D array" : "scalar value"), exp);
+    var indices    = get_indices(exp.left, env, []);
+    var array_name = get_array_name(exp.left);
+    var array      = env.get(array_name);
+    var new_value  = set_element(array.value, indices, right.value);
+    array.value = new_value;
+    env.set(array_name,array, exp);
+    return array;
+}
+
 function croak(msg, exp) {
-    throw new Error(msg + " (" + exp.line + ":" + null + ")");
+    throw new Error(msg + " (" + exp.line + ":" + exp.col + ")");
 }
 
 function print_ast(ast) {
