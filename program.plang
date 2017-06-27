@@ -1,10 +1,11 @@
 variables:
 	a,b:numbers,
 	c:string,
-	d:array of numbers
+	d:array of arrays of numbers
 
 A ← 1
 b ← 10
+d ← [[a, 2], ["3"]]
 
 Function Kiir(a, b)
 	WHILe a <= b

@@ -60,7 +60,7 @@ function TokenStream(input) {
         return "+-*/%=<>!←".indexOf(ch) >= 0;
     }
     function is_punc(ch) {
-        return ":,(){}[]\n".indexOf(ch) >= 0;
+        return ":,()[]\n".indexOf(ch) >= 0;
     }
     function is_whitespace(ch) {
         return " \t".indexOf(ch) >= 0;
@@ -400,6 +400,27 @@ function parse(input) {
         expr = expr();
         return is_punc("(") ? parse_call(expr) : expr;
     }
+    function parse_array_def() {
+        var line  = input.line();
+        var col   = input.col();
+        var value = delimited(null, "]", ",", parse_expression);
+        for (var i = 0; i < value.length; i++)
+            if (value[i].dimension != value[0].dimension)
+                croak("Inconsistent array definition: '" + value[i].value + "' is " +
+                  (value[i].dimension == 1 ? "array" :
+                    (value[i].dimension > 0 ? value[i].dimension + "D array" : "scalar value"))
+                   + ", but previous elements was " +
+                     (value[0].dimension == 1 ? "arrays" :
+                       (value[0].dimension > 0 ? value[0].dimension + "D arrays" : "scalar values")),
+                      value[0]);
+        return {
+            type      : "new_array",
+            line      : line,
+            col       : col,
+            value     : value,
+            dimension : value[0].dimension + 1
+        };
+    }
     function parse_atom() {
         return maybe_call(function(){
             if (skip_punc("(", true)) {
@@ -407,12 +428,14 @@ function parse(input) {
                 skip_punc(")");
                 return exp;
             }
+            if (skip_punc("[", true)) return parse_array_def();
             if (skip_kw("variables", true)) return parse_new_var();
             if (skip_kw("if", true)) return parse_if();
             if (skip_kw("while", true)) return parse_while();
             if (is_kw("true") || is_kw("false")) return parse_bool();
             if (skip_kw("function", true)) return parse_function();
             var tok = input.next();
+            print_ast(tok);
             if (tok.type == "var" || tok.type == "number" || tok.type == "string")
                 return tok;
             unexpected();
@@ -512,6 +535,22 @@ function evaluate(exp, env) {
           });
         });
         return val;
+
+      case "new_array":
+        var value = [];
+        var type = null;
+        exp.value.forEach(function(expr){
+            var new_value = evaluate(expr, env);
+            print_ast(new_value);
+            if (type && type != new_value.type)
+                croak("Type mismatch: '" + new_value.value + "' is type of " +
+                  new_value.type + ", but previous values was type of " + type, expr);
+            else
+                type = new_value.type;
+            value.push(new_value.value);
+        });
+        var ret = wrap(type, value, exp);
+        return ret;
 
       case "assign":
         if (exp.left.type != "var")
@@ -673,5 +712,6 @@ if (typeof process != "undefined") (function(){
         var ast = parse(TokenStream(InputStream(code)));
         print_ast(ast);
         evaluate(ast, globalEnv);
+        print_ast(globalEnv);
     });
 })();
