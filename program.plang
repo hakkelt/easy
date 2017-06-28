@@ -9,7 +9,7 @@ d ← [[[2, 3, 5],[8,6],[1,2,3]],[[0]]]
 
 variables: asdf:number
 
-Function Kiir(a, b)
+Function Kiir(a:number, b:number)
 	WHILe a <= b
 		print(A)
 		IF A == 1 then
@@ -23,9 +23,9 @@ Function Kiir(a, b)
 	END WHILE
 end Function
 
-d[0][0][10] ← 1000
+d[0][0][0] ← 1000
 
-kiir(a, 10)
+kiir("a", 10)
 printLiNe("")
 printline(d, "asdf")
 printLiNe("egyik szöveg" & " másik szöveg")

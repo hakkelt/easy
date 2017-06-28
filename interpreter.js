@@ -313,6 +313,7 @@ function parse(input) {
         return type;
     }
     function parse_varline() {
+      var col = input.col();
       var names = delimited(null, ":", ",", parse_varname);
       var type = plural_to_singular(input.next());
       if (type.type != "kw" || VAR_TYPES.indexOf(" " + type.value.toLowerCase() + " ") == -1)
@@ -330,7 +331,7 @@ function parse(input) {
           dimension  : dimension,
           type       : type.value.toLowerCase(),
           line       : input.line(),
-          col        : input.col()
+          col        : col
       };
     }
     function parse_varname() {
@@ -390,6 +391,29 @@ function parse(input) {
         skip_kw("end while");
         return ret;
     }
+    function parse_argument() {
+        var col = input.col();
+        var name = parse_varname();
+        skip_punc(":");
+        var type = input.next();
+        if (type.type != "kw" || VAR_TYPES.indexOf(" " + type.value.toLowerCase() + " ") == -1)
+            input.croak("Expecting variable type name");
+        var dimension = 0;
+        while (type.value.toLowerCase() == "array") {
+            skip_kw("of");
+            type = plural_to_singular(input.next());
+            if (type.type != "kw" || VAR_TYPES.indexOf(" " + type.value.toLowerCase() + " ") == -1)
+              input.croak("Expecting variable type name ");
+            dimension++;
+        }
+        return {
+            name       : name,
+            dimension  : dimension,
+            type       : type.value.toLowerCase(),
+            line       : input.line(),
+            col        : col
+        };
+    }
     function parse_function() {
         var name = input.next();
         if (name.type != "var") input.croak("Expecting function name");
@@ -398,7 +422,7 @@ function parse(input) {
             name : name.value,
             line : input.line(),
             col  : input.col(),
-            vars : delimited("(", ")", ",", parse_varname),
+            vars : delimited("(", ")", ",", parse_argument),
             body : read_block(null, ["end function"], parse_expression)
         };
         skip_kw("end function");
@@ -719,12 +743,21 @@ function wrap(type, value, expr=null) {
 
 function make_function(env, exp) {
     function lambda() {
-        var names = exp.vars;
+        var args = exp.vars;
         var scope = env.extend();
-        if (arguments.length != names.length)
+        if (arguments.length != args.length)
             croak("Calling function \"" + exp.name + "\" with improper number of arguments", exp);
-        for (var i = 0; i < names.length; ++i){
-            scope.def(names[i], wrap(arguments[i].type, arguments[i].value, exp));
+        for (var i = 0; i < args.length; ++i){
+            if (args[i].type !== arguments[i].type)
+                croak("Type mismatch: Argument '" + args[i].name + "' of the function is type of "
+                  + args[i].type + ", but a(n) " + arguments[i].type +
+                  " (" + format(arguments[i].value) + ") is assigned to it", exp);
+            if (args[i].dimension !== arguments[i].dimension)
+                croak("Type mismatch: Argument '" + args[i].name + "' of the function is "
+                  + (args[i].dimension > 0 ? args[i].dimension + "D array" : "scalar value") + ", but "
+                  + (args[i].dimension > 0 ? args[i].dimension + "D array" : "scalar value") +
+                  " is assigned to it", exp);
+            scope.def(args[i].name, wrap(args[i].type, arguments[i].value, args[i]));
         }
         return evaluate(exp.body, scope);
     }
