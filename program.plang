@@ -25,7 +25,7 @@ end Function
 
 d[0][0][0] ← 1000
 
-kiir("a", 10)
+kiir(a, 10)
 printLiNe("")
 printline(d, "asdf")
 printLiNe("egyik szöveg" & " másik szöveg")
