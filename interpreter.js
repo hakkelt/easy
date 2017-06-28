@@ -377,11 +377,14 @@ function parse(input) {
         return ret;
     }
     function parse_while() {
+        var line = input.line()
+        var cond = parse_expression();
+        skip_punc("\n");
         var ret = {
             type: "while",
-            line: input.line(),
+            line: line,
             col : null,
-            cond: parse_expression(),
+            cond: cond,
             body: read_block(null, ["end while"], parse_expression)
         };
         skip_kw("end while");
@@ -744,8 +747,8 @@ function indexing(exp, env) {
     if (index.value < 0)
         croak("Index cannot be negative, but " + index.value + " is given");
     if (index.value >= array.value.length)
-        croak("Index is out of range: Index is " + index.value + ", and array '" +
-            get_array_name(exp).value + "' has length of " + array.value.length, exp);
+        croak("Index is out of range: Index is " + index.value +
+            ", but the indexed array has only " + array.value.length + " elements", exp);
     return {
         type      : array.type,
         dimension : array.dimension - 1,

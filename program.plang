@@ -11,19 +11,19 @@ variables: asdf:number
 
 Function Kiir(a, b)
 	WHILe a <= b
-	      print(A)
-				IF A == 1 then
-					 print(" -> ")
-				else if a < B and a > 0 Then
-					 print(", ") // comment
-				else
-					 print(" :)")
-				end if
-	      a ← a + 1
+		print(A)
+		IF A == 1 then
+			 print(" -> ")
+		else if a < B and a > 0 Then
+			 print(", ") // comment
+		else
+				print(" :)")
+		end if
+    a ← a + 1
 	END WHILE
 end Function
 
-d[0][0][0] ← 1000
+d[0][0][10] ← 1000
 
 kiir(a, 10)
 printLiNe("")
