@@ -1,34 +1,33 @@
 module.exports = {
-    InputStream: InputStream
+  InputStream: InputStream
 }
 function InputStream(input) {
-    var pos = 0, line = 1, col = 0;
+  var pos = 0, line = 1, col = 0;
+  return {
+    next  : next,
+    peek  : peek,
+    eof   : eof,
+    pos   : getPosition,
+  };
+  function read(pos) {
+    input.substring(pos.begin.pos, pos.end.pos);
+  }
+  function next() {
+    var ch = input.charAt(pos++);
+    if (ch == "\n") line++, col = 0; else col++;
+    return ch;
+  }
+  function peek(offset=0) {
+    return input.charAt(pos+offset);
+  }
+  function eof() {
+    return peek() == "";
+  }
+  function getPosition() {
     return {
-        next  : next,
-        peek  : peek,
-        eof   : eof,
-        croak : croak,
-        line  : getLine,
-        col   : getColumn
-    };
-    function next() {
-        var ch = input.charAt(pos++);
-        if (ch == "\n") line++, col = 0; else col++;
-        return ch;
+      line : line,
+      col  : col,
+      pos  : pos
     }
-    function peek(offset=0) {
-        return input.charAt(pos+offset);
-    }
-    function eof() {
-        return peek() == "";
-    }
-    function croak(msg) {
-        throw new Error(msg + " (" + line + ":" + col + ")");
-    }
-    function getLine() {
-      return line;
-    }
-    function getColumn() {
-      return col;
-    }
+  }
 }

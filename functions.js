@@ -1,22 +1,19 @@
 module.exports = {
-    printline: printline,
-    print : print
-}
-
-function printline(){
-    for (i = 0; i < arguments.length; i++){
-        process.stdout.write(format(arguments[i].value, false));
-        if (i < arguments.length - 1)
-            process.stdout.write(" ");
-    }
-    process.stdout.write("\n");
-}
-function print(){
-    for (i = 0; i < arguments.length; i++){
-        process.stdout.write(format(arguments[i].value, false));
-        if (i < arguments.length - 1)
-            process.stdout.write(" ");
-    }
+    printline: function(){
+        for (i = 0; i < arguments.length; i++){
+            process.stdout.write(format(arguments[i].value, false));
+            if (i < arguments.length - 1)
+                process.stdout.write(" ");
+        }
+        process.stdout.write("\n");
+    },
+    print : function(){
+        for (i = 0; i < arguments.length; i++){
+            process.stdout.write(format(arguments[i].value, false));
+            if (i < arguments.length - 1)
+                process.stdout.write(" ");
+        }
+    },
 }
 
 function format(value) {

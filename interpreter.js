@@ -4,12 +4,6 @@ function print_ast(ast) {
 }
 
 /* -----[ entry point for NodeJS ]----- */
-var env = require("./environment");
-var globalEnv = new env.Environment();
-
-function add_function(name, func) {
-  globalEnv.def(name, wrap("function", func));
-}
 
 function wrap(type, value) {
   return {
@@ -21,9 +15,6 @@ function wrap(type, value) {
 }
 
 if (typeof process != "undefined") (function(){
-    var func = require("./functions");
-    add_function("printline", func.printline);
-    add_function("print", func.print);
     var code = "";
     process.stdin.setEncoding("utf8");
     process.stdin.on("readable", function(){
@@ -31,13 +22,22 @@ if (typeof process != "undefined") (function(){
         if (chunk) code += chunk;
     });
     process.stdin.on("end", function(){
+        var env = require("./environment");
+        var globalEnv = new env.Environment();
+        function add_function(name, func) {
+          globalEnv.def(name, wrap("function", func));
+        }
+        var func = require("./functions");
+        add_function("printline", func.printline);
+        add_function("print", func.print);
         var i = require("./inputStream");
         var t = require("./tokenStream");
         var p = require("./parser");
-        var e = require("./evaluate")
+        var e = require("./evaluate");
+				var error = require("./error");
         var ast = p.parse(t.TokenStream(i.InputStream(code)));
-        print_ast(ast);
+        console.log(error.toString(ast));
         e.evaluate(ast, globalEnv);
-        print_ast(globalEnv);
+        //print_ast(globalEnv);
     });
 })();
