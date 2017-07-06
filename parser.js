@@ -88,11 +88,11 @@ function parse(input) {
       vars     : [],
       position : input.get_pos(begin_pos)
     };
-    while (true) {
+    do {
       skip_punc("\n", true);
       ret.vars.push(parse_varline());
-      if (!skip_punc(",", true)) return ret;
-    }
+    } while (skip_punc(",", true));
+    return ret;
   }
   function parse_varname() {
     var name = input.next();
@@ -127,10 +127,14 @@ function parse(input) {
     var a = [];
     if (start) skip_kw(start);
     while (!input.eof()) {
-      if (skip_punc("\n", true)) continue;
-      for (var i = 0; i < stop.length; i++)
+      if (is_punc("\n", true))
+        a.push(newline());
+      for (i = 0; i < stop.length; i++)
         if (is_kw(stop[i])) return a;
       a.push(parser());
+      for (i = 0; i < stop.length; i++)
+        if (is_kw(stop[i])) return a;
+      skip_punc("\n");
     }
     return a;
   }
@@ -155,8 +159,7 @@ function parse(input) {
     } while (skip_kw(KW.ELSEIF, true));
     if (skip_kw(KW.ELSE, true) && skip_punc("\n"))
       ret.else = read_block("if", null, [KW.ENDIF], parse_expression);
-    skip_kw(KW.ENDIF)
-    skip_punc("\n");
+    skip_kw(KW.ENDIF);
     ret.position = input.get_pos(begin_pos);
     return ret;
   }
@@ -193,10 +196,12 @@ function parse(input) {
   function parse_function(begin_pos) {
     var name = input.next();
     error.check_function_name(name);
+    var vars = delimited("(", ")", ",", parse_arguments)
+    skip_punc("\n")
     var ret = {
       type : "function",
       name : name.value,
-      vars : delimited("(", ")", ",", parse_arguments),
+      vars : vars,
       body : read_block(KW.FUNCTION, null, [KW.ENDFUNCTION], parse_expression)
     };
     skip_kw(KW.ENDFUNCTION);
@@ -259,6 +264,14 @@ function parse(input) {
     }
     return token;
   }
+  function newline() {
+    var begin_pos = input.begin_pos();
+    while(skip_punc("\n", true));
+    return {
+      type: "newline",
+      position: input.get_pos(begin_pos)
+    }
+  }
   function parse_atom() {
     return maybe_call(function(){
       if (skip_punc("(", true)) {
@@ -283,15 +296,20 @@ function parse(input) {
     var begin_pos = input.begin_pos();
     var prog = [];
     while (!input.eof()) {
+      if(is_punc("\n", true)) prog.push(newline());
       prog.push(parse_expression());
-      while(!input.eof() && skip_punc("\n", true));
+      skip_punc("\n");
     }
-    return { type: "prog", prog: prog, position: input.get_pos(begin_pos),
-              input: input };
+    return {
+      type: "prog",
+      prog: prog,
+      position: input.get_pos(begin_pos)
+    };
   }
   function parse_expression() {
-    return maybe_call(function(){
+    var ret = maybe_call(function(){
       return maybe_binary(parse_atom(), 0);
     });
+    return ret;
   }
 }

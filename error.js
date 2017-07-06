@@ -344,22 +344,24 @@ function reverseString(str) {
   return str.split( '' ).reverse( ).join( '' );
 }
 function new_var_toString(ast, indent) {
-  var str = indent + KW.VARIABLES + ":\n\t" + indent;
+  var str = indent + KW.VARIABLES + ":";
   var array = [];
   ast.vars.forEach(function(line) {
     array.push(line.names.join(", ") + " : " + line.type);
   });
-  return str + array.join(',\n\t' + indent);
+  if (array.length != 1) str += "\n" + INDENT + indent;
+  else str += " ";
+  return str + array.join(',\n' + INDENT + indent);
 }
 function prod_if(ast, indent) {
   var str = indent + KW.IF + " " + toString(ast.cond[0]) + " " + KW.THEN + "\n";
-  str += toString(ast.then[0], indent) + "\n";
+  str += toString(ast.then[0], indent + INDENT) + "\n";
   for (i = 1; i < ast.cond.length; i++) {
     str += indent + KW.ELSE + " " + KW.IF + " " + toString(ast.cond[i], indent + INDENT) + " " + KW.THEN + "\n";
-    str += toString(ast.then[0], indent + INDENT) + "\n";
+    str += toString(ast.then[i], indent + INDENT) + "\n";
   }
   if (ast.else)
-    str += indent + KW.ELSE + "\n" + toString(ast.else, indent) + "\n";
+    str += indent + KW.ELSE + "\n" + toString(ast.else, indent + INDENT) + "\n";
   return str + indent + KW.END + " " + KW.IF;
 }
 function new_function(ast, indent) {
@@ -395,7 +397,7 @@ function toString(ast, indent="") {
       ast.value.forEach(function(item) {
         array.push(toString(item));
       });
-      return "[" + array.join(", ") + "]";
+      return "[" + array.join(",") + "]";
 
     case "assign":
       return  indent + toString(ast.left) + " ← " + toString(ast.right);
@@ -412,7 +414,7 @@ function toString(ast, indent="") {
     case "while":
       var str = indent + KW.WHILE + " " + ast.cond + "\n";
       str += toString(ast.body, indent + INDENT);
-      return str + indent + KW.END + " " + KW.WHILE;
+      return str + "\n" + indent + KW.END + " " + KW.WHILE;
 
     case "prog":
       var array = [];
@@ -428,6 +430,10 @@ function toString(ast, indent="") {
         array.push(toString(item));
       });
       return str + array.join(", ") + ")";
+
+    case "newline":
+      return indent;
+
     default:
       return JSON.stringify(ast);
   }

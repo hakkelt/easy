@@ -59,6 +59,9 @@ function evaluate(expr, env) {
         return evaluate(arg, env);
       }));
 
+    case "newline":
+      return null;
+
     default:
       error.do_not_know_how_to_evaluate(expr);
   }

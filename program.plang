@@ -1,3 +1,4 @@
+
 varIables:
 	a,b:numbers,
 	c:string,
@@ -10,18 +11,36 @@ d ← [[[2, 3, 5],[8,6],[1,2,3]],[[0]]]
 variables: asdf:number
 
 Function Kiir(a:number, b:number)
+
 	WHILe a <= b
+
 		print(A)
+
 		IF A == 1 then
+
 			 print(" -> ")
+
+
+
 		else if a < B and a > 0 Then
+
 			 print(", ") // comment
+
+
 		else
+
 				print(" :)")
+
 		end if
+
     a ← a + 1
+
+
 	END WHILE
+
 end Function
+
+
 
 d[0][0][0] ← 1000
 

@@ -37,6 +37,7 @@ if (typeof process != "undefined") (function(){
 				var error = require("./error");
         var ast = p.parse(t.TokenStream(i.InputStream(code)));
         console.log(error.toString(ast));
+				//print_ast(ast)
         e.evaluate(ast, globalEnv);
         //print_ast(globalEnv);
     });
