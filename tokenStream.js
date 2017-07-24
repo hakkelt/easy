@@ -9,7 +9,22 @@ function TokenStream(input) {
   const op_char = "+-*/%&=<>!←";
   const punctuation = ":,()[]\n";
   const whitespace = " \t";
-  const id_start = new RegExp("[a-z_]", "i");
+  const id_start = new RegExp("[a-zA-ZÆÐƎƏƐƔĲŊŒẞÞǷȜæðǝəɛɣĳŋœĸſßþƿȝĄƁÇĐƊĘĦĮƘŁØƠŞȘŢȚŦŲƯY̨Ƴąɓçđɗęħįƙłøơşșţțŧųưy̨ƴÁÀÂÄǍĂĀÃÅǺĄÆǼǢƁĆĊĈČÇĎḌĐƊÐÉÈĖÊËĚĔĒĘẸƎƏƐĠĜǦĞĢƔáàâäǎăāãåǻąæǽǣɓćċĉčçďḍđɗðéèėêëěĕēęẹǝəɛġĝǧğģɣĤḤĦIÍÌİÎÏǏĬĪĨĮỊĲĴĶƘĹĻŁĽĿʼNŃN̈ŇÑŅŊÓÒÔÖǑŎŌÕŐỌØǾƠŒĥḥħıíìiîïǐĭīĩįịĳĵķƙĸĺļłľŀŉńn̈ňñņŋóòôöǒŏōõőọøǿơœŔŘŖŚŜŠŞȘṢẞŤŢṬŦÞÚÙÛÜǓŬŪŨŰŮŲỤƯẂẀŴẄǷÝỲŶŸȲỸƳŹŻŽẒŕřŗſśŝšşșṣßťţṭŧþúùûüǔŭūũűůųụưẃẁŵẅƿýỳŷÿȳỹƴźżžẓ_]", "i");
+  var escape_dict = {
+    "b" : "\b",
+    "f" : "\f",
+    "n" : "\n",
+    "r" : "\r",
+    "t" : "\t",
+    "v" : "\v",
+    "0" : "\0",
+    "'" : "\'",
+    "\"": "\"",
+    "\\": "\\",
+    "\n": "",
+    " " : "skip",
+    "\t": "skip"
+  };
 
   return {
     next      : next,
@@ -112,16 +127,26 @@ function TokenStream(input) {
       ret.dimension = 0;
     return ret;
   }
+  function escape(ch) {
+    if (!(ch in escape_dict))
+      error.not_known_escape_character(ch, {"begin":input.pos()});
+    return escape_dict[ch];
+  }
   function read_escaped(end) {
     var escaped = false, str = "";
     input.next();
     while (!input.eof()) {
       var ch = input.next();
       if (escaped) {
-        str += ch;
-        escaped = false;
+        var esc = escape(ch);
+        if (esc != "skip") {
+          str += esc;
+          escaped = false;
+        }
       } else if (ch == "\\")
         escaped = true;
+      else if (ch == "\n")
+        error.forbidden_new_line({"begin":input.pos()});
       else if (ch == end)
         break;
       else
@@ -173,7 +198,7 @@ function TokenStream(input) {
     if (is_id_start(ch)) return read_ident(begin_pos);
     if (is_punc(ch)) return read_punc(begin_pos);
     if (is_op_char(ch)) return read_op(begin_pos);
-    error.cannot_handle_character(op, wrapPosition(begin_pos));
+    error.cannot_handle_character(ch, wrapPosition(begin_pos));
   }
   function peek() {
     return current || (current = read_next());

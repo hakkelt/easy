@@ -1,6 +1,6 @@
 module.exports = {
     printline: function(){
-        for (i = 0; i < arguments.length; i++){
+        for (i = 1; i < arguments.length; i++){
             process.stdout.write(format(arguments[i].value, false));
             if (i < arguments.length - 1)
                 process.stdout.write(" ");
@@ -8,7 +8,7 @@ module.exports = {
         process.stdout.write("\n");
     },
     print : function(){
-        for (i = 0; i < arguments.length; i++){
+        for (i = 1; i < arguments.length; i++){
             process.stdout.write(format(arguments[i].value, false));
             if (i < arguments.length - 1)
                 process.stdout.write(" ");

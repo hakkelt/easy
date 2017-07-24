@@ -15,6 +15,14 @@ module.exports = {
     title: "Syntax error",
     msg: "Can't handle character: CHAR"
   },
+  not_known_escape_character: {
+    title: "Syntax error",
+    msg: "Not known escape character: CHAR (if you want to write character '\\', write '\\\\' instead)"
+  },
+  forbidden_new_line: {
+    title: "Syntax error",
+    msg: "Unescaped line breaks are not allowed within string literals (Use '\\n' escape character instead, or just '\\' if you want just wrap long line!)"
+  },
   expecting_punctiation: {
     title: "Syntax error",
     msg: "Expecting punctuation: CHAR"
@@ -122,6 +130,14 @@ module.exports = {
   argument_number_check: {
     title: "Function call error",
     msg: "Calling function with improper number of arguments (it expects EXP_ARGS arguments, but GIVEN_ARGS is given)"
+  },
+  assignment_check_type: {
+    title: "Type mismatch",
+    msg: "variable 'VAR_NAME' IS/CONTAINS VAR_TYPE, but EXPR_TYPE (EXPR) IS/ARE assigned to it"
+  },
+  assignment_check_dimension: {
+    title: "Dimenion mismatch",
+    msg: "Varisable 'VAR_NAME' is VAR_TYPE, but EXPR_TYPE (EXPR) is assigned to it"
   },
   argument_check_type: {
     title: "Type mismatch",

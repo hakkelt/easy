@@ -25,6 +25,14 @@ module.exports = {
       die(substitute(error_messages.cannot_handle_character, {
         "CHAR" : ch
       }), pos);
+    },
+    not_known_escape_character: function(ch, pos) {
+      die(substitute(error_messages.not_known_escape_character, {
+        "CHAR" : ch
+      }), pos);
+    },
+    forbidden_new_line: function(pos) {
+      die(error_messages.forbidden_new_line, pos);
     }
   },
   parser: {
@@ -138,24 +146,22 @@ module.exports = {
       }
     },
     check_array_type: function(name, variable, value) {
-      if (variable.dimension !== value.dimension) {
-        die(substitute(error_messages.check_dimension, {
-          "VAR_NAME"   : name,
-          "VAR_TYPE"   : getDimension(variable),
-          "EXPR"       : toString(value),
-          "EXPR_TYPE"  : getDimension(value),
-          "EXPR_VALUE" : format(value.value)
+      if (variable.dimension !== value.dimension)
+        die(substitute(error_messages.assignment_check_type, {
+          "VAR_NAME"    : name,
+          "VAR_TYPE"    : getDimension(variable),
+          "EXPR_TYPE"   : getDimension(value),
+          "EXPR"        : toString(value)
         }), value.position);
-      }
-      if (variable.type !== value.type) {
-        die(substitute(error_messages.check_type, {
-          "VAR_NAME"   : name,
-          "VAR_TYPE"   : variable.type,
-          "EXPR"       : toString(value),
-          "EXPR_TYPE"  : value.type,
-          "EXPR_VALUE" : format(value.value)
+      if (variable.type !== value.type)
+        die(substitute(error_messages.assignment_check_type, {
+          "VAR_NAME"    : toString(name),
+          "IS/CONTAINS" : variable.dimension > 0 ? "contains" : "is",
+          "VAR_TYPE"    : variable.type + (variable.dimension > 0 ? "s" : ""),
+          "EXPR_TYPE"   : value.type + (value.dimension > 0 ? "s" : ""),
+          "IS/ARE"      : value.dimension > 0 ? "are" : "is",
+          "EXPR"        : toString(value)
         }), value.position);
-      }
     },
     check_redefinition: function(name, env, pos) {
       if (Object.prototype.hasOwnProperty.call(env.vars, name.toLowerCase()))
@@ -251,29 +257,32 @@ module.exports = {
       }), op.position);
     },
     argument_number_check: function(def_args, call_args, expr) {
-      if (call_args.length != def_args.length)
+      if (call_args.length - 1 != def_args.length)
         die(substitute(error_messages.argument_number_check, {
           "EXP_ARGS"   : def_args.length,
           "GIVEN_ARGS" : call_args.length
         }), expr.position);
     },
-    argument_check: function(def_arg, call_arg) {
+    argument_check: function(call, call_argument_name, def_arg, call_arg) {
       if (def_arg.dimension !== call_arg.dimension)
         die(substitute(error_messages.argument_check_type, {
           "ARG_NAME"    : def_arg.name,
           "ARG_TYPE"    : getDimension(def_arg),
           "EXPR_TYPE"   : getDimension(call_arg),
           "EXPR"        : toString(call_arg)
-        }), call_arg.position);
-      if (def_arg.type !== call_arg.type)
+        }), call.position);
+      if (def_arg.type !== call_arg.type) {
+        var expr = toString(call_argument_name);
+        var expr_value = toString(call_arg);
         die(substitute(error_messages.argument_check_type, {
           "ARG_NAME"    : def_arg.name,
           "IS/CONTAINS" : def_arg.dimension > 0 ? "contains" : "is",
           "ARG_TYPE"    : def_arg.type + (def_arg.dimension > 0 ? "s" : ""),
           "EXPR_TYPE"   : call_arg.type + (call_arg.dimension > 0 ? "s" : ""),
           "IS/ARE"      : call_arg.dimension > 0 ? "are" : "is",
-          "EXPR"        : toString(call_arg)
-        }), call_arg.position);
+          "EXPR"        : expr + (expr == expr_value ? "" : " = " + expr_value)
+        }), call.position);
+      }
     },
     check_indexing: function(expr, array, index) {
       if (!array.value)

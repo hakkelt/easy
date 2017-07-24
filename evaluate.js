@@ -56,9 +56,11 @@ function evaluate(expr, env) {
 
     case "call":
       var func = evaluate(expr.func, env).value;
-      return func.apply(null, expr.args.map(function(arg){
+      var temp = [expr].concat(expr.args.map(function(arg){
         return evaluate(arg, env);
-      }));
+      }))
+      //console.log(temp);
+      return func.apply(null, temp);
 
     case "newline":
       return null;
@@ -154,22 +156,10 @@ function apply_op(expr, env) {
     switch (expr.operator) {
       case "-"  : return wrap_op_result("number", -num(a), expr);
       case "not": return wrap_op_result("bool", !bool(a), expr);
-      case "+"  :
-      case "*"  :
-      case "/"  :
-      case "%"  :
-      case "&"  :
-      case "and":
-      case "or" :
-      case "<"  :
-      case ">"  :
-      case "<=" :
-      case ">=" :
-      case "==" :
-      case "!=" :
-      case "=<" :
-      case "=>" :
-      case "=!" : error.binary_only(expr);
+      case "+"  : case "*"  : case "/"  : case "%"  : case "&"  : case "and":
+      case "or" : case "<"  : case ">"  : case "<=" : case ">=" : case "==" :
+      case "!=" : case "=<" : case "=>" : case "=!" :
+        error.binary_only(expr);
     }
     error.operator_cannot_apply(expr);
   }
@@ -188,10 +178,10 @@ function make_function(env, expr) {
   function lambda() {
     var args = expr.vars;
     var scope = env.extend();
-    error.argument_number_check(args, arguments, expr);
-    for (var i = 0; i < args.length; ++i){
-      error.argument_check(args[i], arguments[i]);
-      scope.def(args[i].name, wrap(args[i].type, arguments[i].value, args[i]));
+    error.argument_number_check(args, arguments, args[0]);
+    for (var i = 1; i < arguments.length; ++i){
+      error.argument_check(arguments[0], arguments[0].args[i-1], args[i-1], arguments[i]);
+      scope.def(args[i-1].name, wrap(args[i-1].type, arguments[i].value, args[i-1]));
     }
     return evaluate(expr.body, scope);
   }

@@ -1,12 +1,14 @@
 
 varIables:
-	a,b:numbers,
+	A,b:numbers,
 	c:string,
-	d:aRray of ArraYs of arrays OF numbers
+	d:aRray of ArraYs of arrays OF numbers,
+	áj:string
 
-A ← 1
+a ← 1
 b ← 10
 d ← [[[2, 3, 5],[8,6],[1,2,3]],[[0]]]
+áj <- "árvíztűrő tükörfúrógép"
 printline(d)
 
 variables: asdf:number
@@ -46,6 +48,6 @@ end Function
 d[0][0][0] ← 1000
 
 kiir(a, 10)
-printLiNe("")
+printLiNe(áj)
 printline(d, "asdf")
 printLiNe("egyik szöveg" & " másik szöveg")
