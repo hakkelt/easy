@@ -9,7 +9,11 @@ module.exports = {
   },
   check_traditional_equal_sign: {
     title: "Syntax error",
-    msg: "Ambigous operator: '=' (use '←'/'<-' for assignment and '==' for equality check)"
+    msg: "Ambigous operator: '=' (use '←' or '<-' for assignment and '==' for equality check)"
+  },
+  single_quote: {
+    title: "Syntax error",
+    msg: "Can't handle character: ' (Use double quote ( \" ) instead to define strings)"
   },
   cannot_handle_character: {
     title: "Syntax error",
@@ -17,11 +21,15 @@ module.exports = {
   },
   not_known_escape_character: {
     title: "Syntax error",
-    msg: "Not known escape character: CHAR (if you want to write character '\\', write '\\\\' instead)"
+    msg: "Not known escape character: 'CHAR' (if you want to write character '\\', write '\\\\' instead)"
   },
   forbidden_new_line: {
     title: "Syntax error",
     msg: "Unescaped line breaks are not allowed within string literals (Use '\\n' escape character instead, or just '\\' if you want just wrap long line!)"
+  },
+  get_confused: {
+    title: "Syntax error",
+    msg: "Sorry, I don't understand what you mean here"
   },
   expecting_punctiation: {
     title: "Syntax error",
@@ -34,6 +42,14 @@ module.exports = {
   expecting_operator: {
     title: "Syntax error",
     msg: "Expecting operator: OP"
+  },
+  not_known_word: {
+    title: "Syntax error",
+    msg: "I don't understand the following word: TOKEN (maybe a typo or variable used before definition?)"
+  },
+  variable_definition_missing_comma: {
+    title: "Syntax error",
+    msg: "Didn't you wanted to write a comma here?"
   },
   unexpected_token: {
     title: "Syntax error",
@@ -73,11 +89,11 @@ module.exports = {
   },
   check_dimension: {
     title: "Dimension mismatch",
-    msg: "Variable 'VAR_NAME' is VAR_TYPE and 'EXPR' (= EXPR_VALUE) is EXPR_TYPE"
+    msg: "Variable 'VAR_NAME' is VAR_TYPE and EXPR is EXPR_TYPE"
   },
   check_array_type: {
     title: "Type mismatch",
-    msg: "Variable 'VAR_NAME' contains VAR_TYPEs and 'EXPR' (= EXPR_VALUE) contains EXPR_TYPEs"
+    msg: "Variable 'VAR_NAME' contains VAR_TYPEs and 'EXPR' contains EXPR_TYPEs"
   },
   check_redefinition: {
     title: "Variable error",
@@ -85,7 +101,7 @@ module.exports = {
   },
   assignment_error: {
     title: "Assignment Error",
-    msg: "Only variables can be assigned. 'EXPR' (= VALUE) is TYPE, so it cannot be assigned"
+    msg: "Only variables can be assigned. EXPR is TYPE, so it cannot be assigned"
   },
   do_not_know_how_to_evaluate: {
     title: "'Should not occur' type of error",
@@ -97,11 +113,15 @@ module.exports = {
   },
   type_check: {
     title: "Type mismatch",
-    msg: "Operator 'OP' expects TYPEs, but 'EXPR' (= EXPR_VALUE) is EXPR_TYPE"
+    msg: "Operator 'OP' expects TYPEs, but EXPR is EXPR_TYPE"
   },
   check_zero_division: {
     title: "Math error",
     msg: "Zero division: EXPR_"
+  },
+  plus_operator_type_check: {
+    title: "Type mismatch",
+    msg: "Operator '+' can be used to add two numbers or concatenate two strings, but A_EXPR is type of A_TYPE and B_EXPR is type of B_TYPE"
   },
   operator_dimension_check: {
     title: "Dimension mismatch",
@@ -149,7 +169,7 @@ module.exports = {
   },
   index_is_not_whole_number: {
     title: "Indexing error",
-    msg: "Indexing is possible only with whole numbers, but INDEX (= VALUE) is given in expression EXPR"
+    msg: "Indexing is possible only with whole numbers, but INDEX is given in expression EXPR"
   },
   check_indexing_array: {
     title: "Dimenion mismatch",
@@ -165,15 +185,15 @@ module.exports = {
   },
   check_indexing_negative: {
     title: "Index out of range",
-    msg: "Index cannot be negative, but EXPR = VALUE"
+    msg: "Index cannot be negative, but INDEX is given as index in expression 'EXPR'"
   },
-  chec_index_equal: {
+  check_indexing_equal: {
     title: "Index out of range",
-    msg: "Index (EXPR) is #, but the indexed array has only # elements (indexing starts from 0!)"
+    msg: "Index is EXPR, but the indexed array has only # elements (indexing starts from 0)"
   },
-  check_indexing_large: {
+  check_indexing_larger: {
     title: "Index out of range",
-    msg: "Index (EXPR) is VALUE, but the indexed array has only # elements"
+    msg: "Index is EXPR, but the indexed array has only # elements"
   },
   array_assign_check_type: {
     title: "Type mismatch",

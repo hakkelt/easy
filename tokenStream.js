@@ -6,7 +6,7 @@ module.exports = {
 function TokenStream(input) {
   var current = null;
   const KW = require("./keywords");
-  const op_char = "+-*/%&=<>!←";
+  const op_char = "+-*/%=<>!←";
   const punctuation = ":,()[]\n";
   const whitespace = " \t";
   const id_start = new RegExp("[a-zA-ZÆÐƎƏƐƔĲŊŒẞÞǷȜæðǝəɛɣĳŋœĸſßþƿȝĄƁÇĐƊĘĦĮƘŁØƠŞȘŢȚŦŲƯY̨Ƴąɓçđɗęħįƙłøơşșţțŧųưy̨ƴÁÀÂÄǍĂĀÃÅǺĄÆǼǢƁĆĊĈČÇĎḌĐƊÐÉÈĖÊËĚĔĒĘẸƎƏƐĠĜǦĞĢƔáàâäǎăāãåǻąæǽǣɓćċĉčçďḍđɗðéèėêëěĕēęẹǝəɛġĝǧğģɣĤḤĦIÍÌİÎÏǏĬĪĨĮỊĲĴĶƘĹĻŁĽĿʼNŃN̈ŇÑŅŊÓÒÔÖǑŎŌÕŐỌØǾƠŒĥḥħıíìiîïǐĭīĩįịĳĵķƙĸĺļłľŀŉńn̈ňñņŋóòôöǒŏōõőọøǿơœŔŘŖŚŜŠŞȘṢẞŤŢṬŦÞÚÙÛÜǓŬŪŨŰŮŲỤƯẂẀŴẄǷÝỲŶŸȲỸƳŹŻŽẒŕřŗſśŝšşșṣßťţṭŧþúùûüǔŭūũűůųụưẃẁŵẅƿýỳŷÿȳỹƴźżžẓ_]", "i");
@@ -66,7 +66,7 @@ function TokenStream(input) {
   function wrapPosition(begin) {
     return {
       begin : begin,
-      end   : input.pos()
+      end   : begin == input.prev_pos() ? input.pos() : input.prev_pos()
     };
   }
   function read_while(predicate) {
@@ -129,24 +129,29 @@ function TokenStream(input) {
   }
   function escape(ch) {
     if (!(ch in escape_dict))
-      error.not_known_escape_character(ch, {"begin":input.pos()});
+      error.not_known_escape_character(ch, wrapPosition(input.prev_pos));
     return escape_dict[ch];
   }
   function read_escaped(end) {
-    var escaped = false, str = "";
+    var escaped = false, str = "", skipped = "", pos;
     input.next();
     while (!input.eof()) {
       var ch = input.next();
       if (escaped) {
         var esc = escape(ch);
         if (esc != "skip") {
+          if (skipped != "" && ch != "n")
+            error.not_known_escape_character(skipped, pos);
           str += esc;
           escaped = false;
+        } else if (skipped == "") {
+          skipped = ch;
+          pos = wrapPosition(input.prev_pos());
         }
       } else if (ch == "\\")
         escaped = true;
       else if (ch == "\n")
-        error.forbidden_new_line({"begin":input.pos()});
+        error.forbidden_new_line(wrapPosition(input.prev_pos()));
       else if (ch == end)
         break;
       else
@@ -198,6 +203,7 @@ function TokenStream(input) {
     if (is_id_start(ch)) return read_ident(begin_pos);
     if (is_punc(ch)) return read_punc(begin_pos);
     if (is_op_char(ch)) return read_op(begin_pos);
+    if (ch == "'") error.single_quote(wrapPosition(begin_pos));
     error.cannot_handle_character(ch, wrapPosition(begin_pos));
   }
   function peek() {

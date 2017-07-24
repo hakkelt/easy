@@ -14,19 +14,10 @@ function parse(input) {
     "+": 10, "-": 10,
     "*": 20, "/": 20, "%": 20,
   };
-  var FALSE = {
-    type      : "bool",
-    value     : false,
-    dimension : 0,
-    position  : getPositionByLength(5)
-  };
+  var variable_is_recently_defined = null;
+  var functions = require("./functions");
+  var already_parsed_var = Object.keys(functions);
   return parse_toplevel();
-  function getPositionByLength(length) {
-    var ret = {begin: input.begin_pos(), end: input.begin_pos()};
-    ret.end.col += length;
-    ret.end.pos += length;
-    return ret;
-  }
   function is_punc(ch) {
     var tok = input.peek();
     return tok && tok.type == "punc" && (!ch || tok.value == ch) && tok;
@@ -40,24 +31,27 @@ function parse(input) {
     return tok && tok.type == "op" && (!op || tok.value.toLowerCase() == op) && tok;
   }
   function skip_punc(ch, optional=false) {
+    var begin_pos = input.begin_pos();
     if (is_punc(ch))
       { input.next(); return true; }
     else if (!optional)
-      error.expecting_punctiation(ch,getPositionByLength(ch.length))
+      error.expecting_punctiation(ch, input.get_pos(begin_pos))
     else
       return false;
   }
   function skip_kw(kw, optional=false) {
+    var begin_pos = input.begin_pos();
     if (is_kw(kw))
       { input.next(); return true; }
     else if (!optional)
-      error.expecting_keyword(kw,getPositionByLength(kw.length))
+      error.expecting_keyword(kw, input.get_pos(begin_pos))
     else
       return false;
   }
   function skip_op(op) {
+    var begin_pos = input.begin_pos();
     if (is_op(op)) input.next();
-    else error.expecting_operator(op,getPositionByLength(op.length))
+    else error.expecting_operator(op, input.get_pos(begin_pos))
   }
   function is_unary() {
     return is_op("-") || is_op(KW.NOT) ? true : false;
@@ -96,18 +90,19 @@ function parse(input) {
     var begin_pos = input.begin_pos();
     var ret = {
       type     : "new_var",
-      vars     : [],
-      position : input.get_pos(begin_pos)
+      vars     : []
     };
     do {
       skip_punc("\n", true);
       ret.vars.push(parse_varline());
     } while (skip_punc(",", true));
+    ret.position = input.get_pos(begin_pos);
     return ret;
   }
   function parse_varname() {
     var name = input.next();
     if (name.type != "var") error.expecting_var_name(name);
+    already_parsed_var.push(name.value.toLowerCase());
     return name.value;
   }
   function parse_var_type_name() {
@@ -145,6 +140,9 @@ function parse(input) {
       a.push(parser());
       for (i = 0; i < stop.length; i++)
         if (is_kw(stop[i])) return a;
+      var next = input.peek();
+      if (next && next.value != "\n")
+        error.get_confused(input.get_pos(begin_pos));
       skip_punc("\n");
     }
     return a;
@@ -207,6 +205,7 @@ function parse(input) {
   function parse_function(begin_pos) {
     var name = input.next();
     error.check_function_name(name);
+    already_parsed_var.push(name.value.toLowerCase());
     var vars = delimited("(", ")", ",", parse_arguments)
     skip_punc("\n")
     var ret = {
@@ -232,10 +231,12 @@ function parse(input) {
     var tok = is_op();
     if (tok) {
       var his_prec = PRECEDENCE[tok.value];
-      if (his_prec > my_prec) {
+      var type = (tok.value == "←" || tok.value == "<-") ? "assign" : "binary";
+      if (his_prec > my_prec ||
+          (type == "assign" && his_prec >= my_prec)) {
         input.next();
         return maybe_binary({
-          type     : (tok.value == "←" || tok.value == "<-") ? "assign" : "binary",
+          type     : type,
           operator : tok.value,
           left     : left,
           right    : maybe_binary(parse_atom(), his_prec),
@@ -289,16 +290,34 @@ function parse(input) {
         return exp;
       }
       var begin_pos = input.begin_pos();
+      if (skip_kw("variables", true)) {;
+        var ret = parse_new_vars(begin_pos);
+        variable_is_recently_defined = {
+          something_parsed_after: false,
+          position: ret.position.end
+        }
+        return ret;
+      }
+      else if (variable_is_recently_defined && !variable_is_recently_defined.something_parsed_after)
+        variable_is_recently_defined.something_parsed_after = true;
+      else
+        variable_is_recently_defined = null;
       if (is_unary()) return parse_unary(begin_pos);
       if (skip_punc("[", true)) return parse_array_def(begin_pos);
       if (is_kw("true") || is_kw("false")) return parse_bool(begin_pos);
-      if (skip_kw("variables", true)) return parse_new_vars(begin_pos);
       if (skip_kw("if", true)) return parse_if(begin_pos);
       if (skip_kw("while", true)) return parse_while(begin_pos);
       if (skip_kw("function", true)) return parse_function(begin_pos);
       var token = input.next();
-      if (token.type == "var" || token.type == "number" || token.type == "string")
-        return maybe_array(token);
+      if (token.type == "var" && already_parsed_var.indexOf(token.value.toLowerCase()) == -1)
+        error.not_known_word(token);
+      if (token.type == "var" || token.type == "number" || token.type == "string"){
+        var ret = maybe_array(token);
+        var is_next_semicolon = input.peek().value == ":";
+        if (variable_is_recently_defined && token.type == "var" && is_next_semicolon)
+          error.variable_definition_missing_comma(variable_is_recently_defined.position);
+        return ret;
+      }
       error.unexpected_token(token);
     });
   }
@@ -308,6 +327,9 @@ function parse(input) {
     while (!input.eof()) {
       if(is_punc("\n", true)) prog.push(newline());
       prog.push(parse_expression());
+      var next = input.peek();
+      if (next && next.value != "\n")
+        error.get_confused(input.get_pos(input.begin_pos()));
       skip_punc("\n");
     }
     return {

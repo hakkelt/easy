@@ -1,3 +1,5 @@
+// You can make changes below...
+
 const IF        = "if";
 const THEN      = "then";
 const ELSE      = "else";
@@ -19,6 +21,8 @@ const OR        = "or";
 const NOT       = "not";
 const TRUE      = "true";
 const FALSE     = "false";
+
+// ...until that point. Do not make changes after that line!
 
 const double_keywords_begin  = [ELSE, END];
 const double_keywords_ending = [IF, FUNCTION, WHILE];

@@ -95,11 +95,11 @@ function apply_op(expr, env) {
   function get(x, type) {
     var value = evaluate(x, env);
     error.operator_dimension_check(expr, value);
-    error.type_check(expr.operator, type, x, value);
-    return value.value;
+    if (type) error.type_check(expr.operator, type, x, value);
+    return value;
   }
   function num(x) {
-    return get(x, "number");
+    return get(x, "number").value;
   }
   function div(x) {
     var value = num(x);
@@ -107,10 +107,10 @@ function apply_op(expr, env) {
     return value.value;
   }
   function bool(x) {
-    return get(x, "bool");
+    return get(x, "bool").value;
   }
   function str(x) {
-    return get(x, "string");
+    return get(x, "string").value;
   }
   function equal(a, b) {
     var left = evaluate(a, env);
@@ -119,23 +119,26 @@ function apply_op(expr, env) {
     return a.value === b.value;
   }
   function wrap_op_result(type, value, expr) {
-      return {
-          type      : type,
-          value     : value,
-          dimension : 0,
-          position  : expr.position
-      };
+    return {
+      type      : type,
+      value     : value,
+      dimension : 0,
+      position  : expr.position
+    };
   }
   if (expr.type == "binary") {
     var a = expr.left;
     var b = expr.right;
     switch (expr.operator) {
-      case "+"  : return wrap_op_result("number", num(a) + num(b), expr);
+      case "+"  :
+        var a_value = get(a, null);
+        var b_value = get(b, null);
+        error.plus_operator_type_check(a, a_value, b, b_value, expr);
+        return wrap_op_result(a_value.type, a_value.value + b_value.value, expr);
       case "-"  : return wrap_op_result("number", num(a) - num(b), expr);
       case "*"  : return wrap_op_result("number", num(a) * num(b), expr);
       case "/"  : return wrap_op_result("number", num(a) / div(b), expr);
       case "%"  : return wrap_op_result("number", num(a) % num(b), expr);
-      case "&"  : return wrap_op_result("string", str(a) + str(b), expr);
       case "and": return wrap_op_result("bool", bool(a) && bool(b), expr);
       case "or" : return wrap_op_result("bool", bool(a) || bool(b), expr);
       case "not": error.unary_only(expr);
@@ -145,20 +148,18 @@ function apply_op(expr, env) {
       case ">=" : return wrap_op_result("bool", num(a) >= num(b), expr);
       case "==" : return wrap_op_result("bool", equal(a, b), expr);
       case "!=" : return wrap_op_result("bool", !equal(a, b), expr);
-      case "=<" :
-      case "=>" :
-      case "=!" : error.operator_reverse_order(expr);
+      case "=<" : case "=>" : case "=!" :
+        error.operator_reverse_order(expr);
     }
     error.operator_cannot_apply(expr);
   } else {
-    var a = evaluate(expr.value, env);
-    error.operator_dimension_check(expr, a);
+    var a = expr.value;
     switch (expr.operator) {
       case "-"  : return wrap_op_result("number", -num(a), expr);
       case "not": return wrap_op_result("bool", !bool(a), expr);
-      case "+"  : case "*"  : case "/"  : case "%"  : case "&"  : case "and":
-      case "or" : case "<"  : case ">"  : case "<=" : case ">=" : case "==" :
-      case "!=" : case "=<" : case "=>" : case "=!" :
+      case "+"  : case "*"  : case "/"  : case "%"  : case "and": case "or" :
+      case "<"  : case ">"  : case "<=" : case ">=" : case "==" : case "!=" :
+      case "=<" : case "=>" : case "=!" :
         error.binary_only(expr);
     }
     error.operator_cannot_apply(expr);

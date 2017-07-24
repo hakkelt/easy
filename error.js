@@ -21,6 +21,9 @@ module.exports = {
     check_traditional_equal_sign: function(op, pos) {
       if (op == "=") die(error_messages.check_traditional_equal_sign, pos);
     },
+    single_quote: function(pos) {
+      die(error_messages.single_quote, pos);
+    },
     cannot_handle_character: function(ch, pos) {
       die(substitute(error_messages.cannot_handle_character, {
         "CHAR" : ch
@@ -36,6 +39,9 @@ module.exports = {
     }
   },
   parser: {
+    get_confused: function(pos) {
+      die(error_messages.get_confused, pos);
+    },
     expecting_punctiation: function(ch, pos) {
       if (ch == "\n") ch = "newline";
       die(substitute(error_messages.expecting_punctiation, {
@@ -51,6 +57,14 @@ module.exports = {
       die(substitute(error_messages.expecting_operator, {
         "OP" : op
       }), pos);
+    },
+    not_known_word:  function(token) {
+      die(substitute(error_messages.not_known_word, {
+        "TOKEN" : token.value
+      }), token.position);
+    },
+    variable_definition_missing_comma: function(pos) {
+      die(error_messages.variable_definition_missing_comma, { begin: pos, end: pos});
     },
     unexpected_token: function(token) {
       die(substitute(error_messages.unexpected_token, {
@@ -123,7 +137,7 @@ module.exports = {
   },
   environment: {
     check_if_defined: function(name, scope) {
-      if (!scope && this.parent)
+      if (!scope)
         die(substitute(error_messages.check_if_defined, {
           "VARIABLE" : name.value
         }), name.position);
@@ -139,9 +153,8 @@ module.exports = {
         die(substitute(error_messages.check_dimension, {
           "VAR_NAME"   : name,
           "VAR_TYPE"   : getDimension(variable),
-          "EXPR"       : toString(value),
+          "EXPR"       : print_with_value(toString(value), format(value.value), true),
           "EXPR_TYPE"  : getDimension(value),
-          "EXPR_VALUE" : format(value.value)
         }), value.position);
       }
     },
@@ -150,8 +163,8 @@ module.exports = {
         die(substitute(error_messages.assignment_check_type, {
           "VAR_NAME"    : name,
           "VAR_TYPE"    : getDimension(variable),
-          "EXPR_TYPE"   : getDimension(value),
-          "EXPR"        : toString(value)
+          "EXPR"        : toString(value),
+          "EXPR_TYPE"   : getDimension(value)
         }), value.position);
       if (variable.type !== value.type)
         die(substitute(error_messages.assignment_check_type, {
@@ -173,10 +186,9 @@ module.exports = {
   evaluate: {
     assignment_error: function(expr) {
       die(substitute(error_messages.assignment_error, {
-        "EXPR"  : toString(expr),
-        "VALUE" : format(expr.value),
+        "EXPR"  : print_with_value(toString(expr), format(toString(expr)), true),
         "TYPE"  : expr.type
-      }))
+      }), expr.position);
     },
     new_array_typeCheck: function(Old, New, pos) {
       if (!Old || New.type == Old.type) return;
@@ -194,11 +206,10 @@ module.exports = {
     type_check: function(operator, type, expr, value) {
       if (value.type !== type)
         die(substitute(error_messages.type_check, {
-          "OP"         : operator,
-          "TYPE"       : type,
-          "EXPR"       : toString(expr),
-          "EXPR_VALUE" : format(value.value),
-          "EXPR_TYPE"  : expr.type
+          "OP"        : operator,
+          "TYPE"      : type,
+          "EXPR"      : print_with_value(toString(expr), format(value.value), true),
+          "EXPR_TYPE" : expr.type
         }), expr.position);
     },
     check_zero_division: function(expr, value) {
@@ -214,6 +225,16 @@ module.exports = {
         die(substitute(error_messages.check_zero_division, {
           "EXPR" : toString(expr),
           "_"    : value.type == "number" ? "" : " = " + value.value
+        }), expr.position);
+    },
+    plus_operator_type_check: function(a, a_value, b, b_value, expr) {
+      if (!((a_value.type == "number" && b_value.type == "number") ||
+            (a_value.type == "string" && b_value.type == "string")))
+        die(substitute(error_messages.plus_operator_type_check, {
+          "A_EXPR" : toString(a),
+          "A_TYPE" : a_value.type,
+          "B_EXPR" : toString(b),
+          "B_TYPE" : b_value.type
         }), expr.position);
     },
     operator_dimension_check: function(expr, value) {
@@ -301,34 +322,34 @@ module.exports = {
         die(substitute(error_messages.argument_check_type, {
           "EXPR" : toString(index),
           "TYPE" : index.type
-        }), index.position);
+        }), expr.position);
       if (index.dimension != 0)
         die(substitute(error_messages.argument_check_dimension, {
           "EXPR" : toString(index),
           "TYPE" : getDimension(index)
-        }), index.position);
-      if (index.value != Math.floor(index.value))
+        }), expr.position);
+      if (index.value != Math.floor(index.value)){
+        var index_expr =
         die(substitute(error_messages.index_is_not_whole_number, {
-          "EXPR" : toString(expr),
-          "INDEX" : toString(expr.index),
-          "VALUE" : index.value
-        }), index.position);
+          "EXPR"  : toString(expr),
+          "INDEX" : print_with_value(toString(expr.index), index.value)
+        }), expr.position);
+      }
       if (index.value < 0)
         die(substitute(error_messages.check_indexing_negative, {
-          "EXPR"  : toString(index),
-          "VALUE" : format(index.value)
-        }), index.position);
+          "INDEX" : print_with_value(toString(expr.index), format(index.value), true),
+          "EXPR"  : toString(expr)
+        }), expr.position);
       if (index.value == array.value.length)
         die(substitute(error_messages.check_indexing_equal, {
-          "EXPR"  : toString(index),
-          "#"     : array.length
-        }), index.position);
+          "EXPR"  : print_with_value(toString(expr.index), index.value),
+          "#"     : array.value.length
+        }), expr.position);
       if (index.value > array.value.length)
         die(substitute(error_messages.check_indexing_larger, {
-          "EXPR"  : toString(index),
-          "VALUE" : format(index.value),
-          "#"     : array.length
-        }), index.position);
+          "EXPR"  : print_with_value(toString(expr.index), index.value),
+          "#"     : array.value.length
+        }), expr.position);
     },
     array_assign_check: function(left, right, expr) {
       if (left.type !== right.type)
@@ -373,6 +394,13 @@ function substitute(msg, substitutes) {
 }
 function getDimension(expr) {
   return (expr.dimension > 0 ? expr.dimension + "D array" : "scalar value")
+}
+function wipe(str) {
+  return String(str).replace(" ", "");
+}
+function print_with_value(expr, value) {
+  var longer = wipe(expr) != wipe(value);
+  return qouted_expr = (longer ? "'" + expr + "'" : expr) + (!longer ? "" : " (= " + value + ")");
 }
 function reverseString(str) {
   return str.split( '' ).reverse( ).join( '' );
@@ -437,7 +465,7 @@ function toString(ast, indent="") {
       return  indent + toString(ast.left) + " ← " + toString(ast.right);
 
     case "unary":
-      return ast.operator + " " + toString(ast.value);
+      return ast.operator + (ast.operator == '-' ? "" : " ") + toString(ast.value);
 
     case "binary":
       return toString(ast.left) + " " + ast.operator + " " + toString(ast.right);

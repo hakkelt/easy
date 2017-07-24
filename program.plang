@@ -1,21 +1,21 @@
 
 varIables:
 	A,b:numbers,
-	c:string,
+	c:number,
 	d:aRray of ArraYs of arrays OF numbers,
 	áj:string
 
 a ← 1
-b ← 10
+b ← 4
 d ← [[[2, 3, 5],[8,6],[1,2,3]],[[0]]]
-áj <- "árvíztűrő tükörfúrógép"
-printline(d)
+áj <- "árvíztűrő\
+ tükörfúrógép"
 
 variables: asdf:number
 
-Function Kiir(a:number, b:number)
+Function Kiir(a:number, e:number)
 
-	WHILe not (a > b)
+	WHILe not (a > e)
 
 		print(A)
 
@@ -25,7 +25,7 @@ Function Kiir(a:number, b:number)
 
 
 
-		else if a < B and a > 0 Then
+		else if a < E and a > 0 Then
 
 			 print(", ") // comment
 
@@ -43,11 +43,11 @@ Function Kiir(a:number, b:number)
 
 end Function
 
+a
 
-
-d[0][0][0] ← 1000
+d[0][0][0] ← c <-2
 
 kiir(a, 10)
 printLiNe(áj)
-printline(d, "asdf")
-printLiNe("egyik szöveg" & " másik szöveg")
+printline (d, "asdf")
+printLiNe("egyik szöveg" + " másik szöveg")
