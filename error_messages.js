@@ -89,7 +89,7 @@ module.exports = {
   },
   type_check: {
     title: "Type mismatch",
-    msg: "Operator OP expects TYPEs, but 'EXPR' (= EXPR_VALUE) is EXPR_TYPE"
+    msg: "Operator 'OP' expects TYPEs, but 'EXPR' (= EXPR_VALUE) is EXPR_TYPE"
   },
   check_zero_division: {
     title: "Math error",
@@ -97,15 +97,23 @@ module.exports = {
   },
   operator_dimension_check: {
     title: "Dimension mismatch",
-    msg: "Operator OP cannot be applied on arrays, and 'EXPR' is TYPE"
+    msg: "Operator 'OP' cannot be applied on arrays, and 'EXPR' is TYPE"
   },
   operator_same_type: {
     title: "Type mismatch",
-    msg: "EXPR1 (TYPE1) and EXPR2 (TYPE2) have different types, thus they cannot be compared"
+    msg: "'EXPR1' (TYPE1) and 'EXPR2' (TYPE2) have different types, thus they cannot be compared"
   },
   operator_reverse_order: {
     title: "Syntax error",
     msg: "Wrong operator: OP (use it in reverse order: REV_OP)"
+  },
+  operator_unary_only: {
+    title: "Syntax error",
+    msg: "Operator 'OP' cannot be applied between two expression, so the following expression is not understood: EXPR"
+  },
+  operator_binary_only: {
+    title: "Syntax error",
+    msg: "Operator 'OP' can be applied only between two expression, so the following expression is not understood: EXPR"
   },
   operator_cannot_apply: {
     title: "Syntax error",
@@ -122,6 +130,10 @@ module.exports = {
   argument_check_dimension: {
     title: "Dimenion mismatch",
     msg: "Argument 'ARG_NAME' is ARG_TYPE, but EXPR_TYPE (EXPR) is assigned to it"
+  },
+  index_is_not_whole_number: {
+    title: "Indexing error",
+    msg: "Indexing is possible only with whole numbers, but INDEX (= VALUE) is given in expression EXPR"
   },
   check_indexing_array: {
     title: "Dimenion mismatch",
@@ -154,5 +166,13 @@ module.exports = {
   array_assign_check_dimension: {
     title: "Dimenion mismatch",
     msg: "Left side of the assignment (LEFT_EXPR) is LEFT_TYPE and the right side (RIGHT_EXPR) is RIGHT_TYPE"
+  },
+  do_not_know_how_to_evaluate: {
+    title: "Should never happen",
+    msg: "Do not know how to evaluate: EXPR"
+  },
+  do_not_know_how_to_stringify: {
+    title: "Should never happen",
+    msg: "Do not know how to stringify: EXPR"
   }
 }

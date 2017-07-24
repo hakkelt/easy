@@ -56,8 +56,19 @@ function parse(input) {
       return false;
   }
   function skip_op(op) {
-      if (is_op(op)) input.next();
-      else error.expecting_operator(op,getPositionByLength(op.length))
+    if (is_op(op)) input.next();
+    else error.expecting_operator(op,getPositionByLength(op.length))
+  }
+  function is_unary() {
+    return is_op("-") || is_op(KW.NOT) ? true : false;
+  }
+  function parse_unary(begin_pos) {
+    return {
+      type     : "unary",
+      operator : input.next().value,
+      value    : parse_atom(),
+      position : input.get_pos(begin_pos)
+    }
   }
   function delimited(start, stop, separator, parser) {
     var a = [], first = true;
@@ -208,8 +219,7 @@ function parse(input) {
     ret.position = input.get_pos(begin_pos);
     return ret;
   }
-  function parse_bool() {
-    var begin_pos = input.begin_pos();
+  function parse_bool(begin_pos) {
     return {
       type      : "bool",
       value     : input.next().value == "true",
@@ -239,8 +249,7 @@ function parse(input) {
     expr = expr();
     return is_punc("(") ? parse_call(expr) : expr;
   }
-  function parse_array_def() {
-    var begin_pos   = input.begin_pos();
+  function parse_array_def(begin_pos) {
     var values = delimited(null, "]", ",", parse_expression);
     error.new_array_check_dimension(values)
     return {
@@ -279,9 +288,10 @@ function parse(input) {
         skip_punc(")");
         return exp;
       }
-      if (skip_punc("[", true)) return parse_array_def();
-      if (is_kw("true") || is_kw("false")) return parse_bool();
       var begin_pos = input.begin_pos();
+      if (is_unary()) return parse_unary(begin_pos);
+      if (skip_punc("[", true)) return parse_array_def(begin_pos);
+      if (is_kw("true") || is_kw("false")) return parse_bool(begin_pos);
       if (skip_kw("variables", true)) return parse_new_vars(begin_pos);
       if (skip_kw("if", true)) return parse_if(begin_pos);
       if (skip_kw("while", true)) return parse_while(begin_pos);
@@ -307,9 +317,8 @@ function parse(input) {
     };
   }
   function parse_expression() {
-    var ret = maybe_call(function(){
+    return maybe_call(function(){
       return maybe_binary(parse_atom(), 0);
     });
-    return ret;
   }
 }

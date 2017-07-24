@@ -185,38 +185,38 @@ module.exports = {
         "EXPR" : toString(expr)
       }), expr.position);
     },
-    type_check: function(expr, type, op) {
-      if (expr.type !== type)
+    type_check: function(operator, type, expr, value) {
+      if (value.type !== type)
         die(substitute(error_messages.type_check, {
-          "OP"         : op.operator,
+          "OP"         : operator,
           "TYPE"       : type,
           "EXPR"       : toString(expr),
-          "EXPR_VALUE" : format(expr.value),
+          "EXPR_VALUE" : format(value.value),
           "EXPR_TYPE"  : expr.type
         }), expr.position);
     },
-    check_zero_division: function(expr) {
-      if (expr.type !== "number")
+    check_zero_division: function(expr, value) {
+      if (value.type !== "number")
         die(substitute(error_messages.type_check, {
-          "OP"         : op.operator,
+          "OP"         : expr.operator,
           "TYPE"       : "number",
           "EXPR"       : toString(expr),
-          "EXPR_VALUE" : format(expr.value),
-          "EXPR_TYPE"  : expr.type
+          "EXPR_VALUE" : format(value.value),
+          "EXPR_TYPE"  : value.type
         }), expr.position);
-      if (expr.value == 0)
+      if (value.value == 0)
         die(substitute(error_messages.check_zero_division, {
           "EXPR" : toString(expr),
-          "_"    : expr.type == "number" ? "" : " = " + expr. value
+          "_"    : value.type == "number" ? "" : " = " + value.value
         }), expr.position);
     },
-    operator_dimension_check: function(op, x) {
-      if (x.dimension > 0)
+    operator_dimension_check: function(expr, value) {
+      if (value.dimension > 0)
         die(substitute(error_messages.check_dimension, {
-          "OP"   : op.operator,
-          "EXPR" : toString(x),
-          "TYPE" : getDimension(x)
-        }), op.position);
+          "OP"   : expr.operator,
+          "EXPR" : toString(expr),
+          "TYPE" : getDimension(expr)
+        }), expr.position);
     },
     operator_same_type: function(op, a, b) {
       if (a.type != b.type)
@@ -231,6 +231,18 @@ module.exports = {
       die(substitute(error_messages.operator_reverse_order, {
         "OP"     : op.operator,
         "REV_OP" : reverseString(op.operator)
+      }), op.position);
+    },
+    unary_only: function(op) {
+      die(substitute(error_messages.operator_unary_only, {
+        "OP"      : op.operator,
+        "EXPR"    : toString(op)
+      }), op.position);
+    },
+    binary_only: function(op) {
+      die(substitute(error_messages.operator_binary_only, {
+        "OP"      : op.operator,
+        "EXPR"    : toString(op)
       }), op.position);
     },
     operator_cannot_apply: function(op) {
@@ -263,7 +275,15 @@ module.exports = {
           "EXPR"        : toString(call_arg)
         }), call_arg.position);
     },
-    check_indexing: function(array, index) {
+    check_indexing: function(expr, array, index) {
+      if (!array.value)
+        die(substitute(error_messages.check_if_initialized, {
+          "VARIABLE" : toString(expr.value)
+        }), expr.position);
+      if (!index)
+        die(substitute(error_messages.check_if_initialized, {
+          "VARIABLE" : toString(expr.index)
+        }), expr.position);
       if (array.dimension == 0)
         die(substitute(error_messages.argument_check_array, {
           "EXPR" : toString(array)
@@ -277,6 +297,12 @@ module.exports = {
         die(substitute(error_messages.argument_check_dimension, {
           "EXPR" : toString(index),
           "TYPE" : getDimension(index)
+        }), index.position);
+      if (index.value != Math.floor(index.value))
+        die(substitute(error_messages.index_is_not_whole_number, {
+          "EXPR" : toString(expr),
+          "INDEX" : toString(expr.index),
+          "VALUE" : index.value
         }), index.position);
       if (index.value < 0)
         die(substitute(error_messages.check_indexing_negative, {
@@ -321,7 +347,6 @@ function format(value) {
 }
 
 function die(msg, pos) {
-  console.log(pos)
   if (mode == "console")
     throw new Error(msg.title + ": " + msg.msg + " (" + pos.begin.line + ":" + pos.begin.col + ")");
   if (mode == "object")
@@ -402,6 +427,9 @@ function toString(ast, indent="") {
     case "assign":
       return  indent + toString(ast.left) + " ← " + toString(ast.right);
 
+    case "unary":
+      return ast.operator + " " + toString(ast.value);
+
     case "binary":
       return toString(ast.left) + " " + ast.operator + " " + toString(ast.right);
 
@@ -435,7 +463,9 @@ function toString(ast, indent="") {
       return indent;
 
     default:
-      return JSON.stringify(ast);
+      die(substitute(error_messages.do_not_know_how_to_stringify, {
+        "EXPR" : ast.type
+      }), ast.position);
   }
 }
 function print_ast(ast) {
