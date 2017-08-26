@@ -3,7 +3,7 @@ module.exports = {
     evaluate: evaluate
 }
 
-function evaluate(expr, env) {
+function evaluate(expr, env, log) {
   switch (expr.type.toLowerCase()) {
     case "number":
     case "string":

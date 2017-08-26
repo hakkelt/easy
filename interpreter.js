@@ -13,32 +13,33 @@ function wrap(type, value) {
       col       : null
   };
 }
-
-if (typeof process != "undefined") (function(){
-    var code = "";
-    process.stdin.setEncoding("utf8");
-    process.stdin.on("readable", function(){
-        var chunk = process.stdin.read();
-        if (chunk) code += chunk;
-    });
-    process.stdin.on("end", function(){
-        var env = require("./environment");
-        var globalEnv = new env.Environment();
-        function add_function(name, func) {
-          globalEnv.def(name, wrap("function", func));
-        }
-        var func = require("./functions");
-        add_function("printline", func.printline);
-        add_function("print", func.print);
-        var i = require("./inputStream");
-        var t = require("./tokenStream");
-        var p = require("./parser");
-        var e = require("./evaluate");
-				var error = require("./error");
-        var ast = p.parse(t.TokenStream(i.InputStream(code)));
-        //console.log(error.toString(ast));
-				//print_ast(ast)
-        e.evaluate(ast, globalEnv);
-        //print_ast(globalEnv);
-    });
-})();
+// Make sure we got a filename on the command line.
+if (process.argv.length < 3) {
+  console.log('Usage: node ' + process.argv[1] + ' FILENAME');
+  process.exit(1);
+}
+// Read the file and print its contents.
+var fs = require('fs'), filename = process.argv[2];
+fs.readFile(filename, 'utf8', function(err, code) {
+  if (err) throw err;
+	var env = require("./environment");
+	var globalEnv = new env.Environment();
+	function add_function(name, func) {
+		globalEnv.def(name, wrap("function", func));
+	}
+	var func = require("./functions");
+	add_function("printline", func.printline);
+	add_function("print", func.print);
+	add_function("read", func.read);
+	var i = require("./inputStream");
+	var t = require("./tokenStream");
+	var p = require("./parser");
+	var e = require("./evaluate");
+	var error = require("./error");
+	var log = [];
+	var ast = p.parse(t.TokenStream(i.InputStream(code)));
+	//console.log(error.toString(ast));
+	//print_ast(ast)
+	e.evaluate(ast, globalEnv, log);
+	//print_ast(globalEnv);
+});

@@ -184,6 +184,7 @@ module.exports = {
     },
   },
   evaluate: {
+    toString: toString,
     assignment_error: function(expr) {
       die(substitute(error_messages.assignment_error, {
         "EXPR"  : print_with_value(toString(expr), format(toString(expr)), true),
