@@ -2,10 +2,8 @@ var mode = "console";
 var input;
 var error_messages = require("./error_messages");
 var KW = require("./keywords");
-var INDENT = "    ";
+var PC = require("./printCode");
 module.exports = {
-  indent: INDENT,
-  toString: toString,
   mode: mode,
   TokenStream: {
     after_else: function(next) {
@@ -103,7 +101,7 @@ module.exports = {
           if (values[i].dimension != values[0].dimension)
             if(values[i].dimension > 0 && values[0].dimension > 0)
               die(substitute(error_messages.new_array_check_dimension, {
-                "EXPR"          : toString(values[i]),
+                "EXPR"          : PC.toString(values[i]),
                 "CURRENT_TYPE"  : values[i].dimension,
                 "IS/CONTAINS_1" : "contains",
                 "PREVIOUS_TYPE" : values[0].dimension,
@@ -111,7 +109,7 @@ module.exports = {
               }), values[i]);
             else if(values[i].dimension == 0 && values[0].dimension > 0)
               die(substitute(error_messages.new_array_check_dimension, {
-                "EXPR"          : toString(values[i]),
+                "EXPR"          : PC.toString(values[i]),
                 "CURRENT_TYPE"  : values[i].dimension,
                 "IS/CONTAINS_1" : "is",
                 "PREVIOUS_TYPE" : values[0].dimension,
@@ -119,7 +117,7 @@ module.exports = {
               }), values[i]);
             else if(values[i].dimension > 0 && values[0].dimension == 0)
               die(substitute(error_messages.new_array_check_dimension, {
-                "EXPR"          : toString(values[i]),
+                "EXPR"          : PC.toString(values[i]),
                 "CURRENT_TYPE"  : values[i].dimension,
                 "IS/CONTAINS_1" : "contains",
                 "PREVIOUS_TYPE" : values[0].dimension,
@@ -127,7 +125,7 @@ module.exports = {
               }), values[i]);
             else
               die(substitute(error_messages.new_array_check_dimension, {
-                "EXPR"          : toString(values[i]),
+                "EXPR"          : PC.toString(values[i]),
                 "CURRENT_TYPE"  : values[i].dimension,
                 "IS/CONTAINS_1" : "is",
                 "PREVIOUS_TYPE" : values[0].dimension,
@@ -153,7 +151,7 @@ module.exports = {
         die(substitute(error_messages.check_dimension, {
           "VAR_NAME"   : name,
           "VAR_TYPE"   : getDimension(variable),
-          "EXPR"       : print_with_value(toString(value), format(value.value), true),
+          "EXPR"       : print_with_value(PC.toString(value), format(value.value), true),
           "EXPR_TYPE"  : getDimension(value),
         }), value.position);
       }
@@ -163,17 +161,17 @@ module.exports = {
         die(substitute(error_messages.assignment_check_type, {
           "VAR_NAME"    : name,
           "VAR_TYPE"    : getDimension(variable),
-          "EXPR"        : toString(value),
+          "EXPR"        : PC.toString(value),
           "EXPR_TYPE"   : getDimension(value)
         }), value.position);
       if (variable.type !== value.type)
         die(substitute(error_messages.assignment_check_type, {
-          "VAR_NAME"    : toString(name),
+          "VAR_NAME"    : PC.toString(name),
           "IS/CONTAINS" : variable.dimension > 0 ? "contains" : "is",
           "VAR_TYPE"    : variable.type + (variable.dimension > 0 ? "s" : ""),
           "EXPR_TYPE"   : value.type + (value.dimension > 0 ? "s" : ""),
           "IS/ARE"      : value.dimension > 0 ? "are" : "is",
-          "EXPR"        : toString(value)
+          "EXPR"        : PC.toString(value)
         }), value.position);
     },
     check_redefinition: function(name, env, pos) {
@@ -184,10 +182,9 @@ module.exports = {
     },
   },
   evaluate: {
-    toString: toString,
     assignment_error: function(expr) {
       die(substitute(error_messages.assignment_error, {
-        "EXPR"  : print_with_value(toString(expr), format(toString(expr)), true),
+        "EXPR"  : print_with_value(PC.toString(expr), format(PC.toString(expr)), true),
         "TYPE"  : expr.type
       }), expr.position);
     },
@@ -201,7 +198,7 @@ module.exports = {
     },
     mystery: function(expr) {
       die(substitute(error_messages.do_not_know_how_to_evaluate, {
-        "EXPR" : toString(expr)
+        "EXPR" : PC.toString(expr)
       }), expr.position);
     },
     type_check: function(operator, type, expr, value) {
@@ -209,7 +206,7 @@ module.exports = {
         die(substitute(error_messages.type_check, {
           "OP"        : operator,
           "TYPE"      : type,
-          "EXPR"      : print_with_value(toString(expr), format(value.value), true),
+          "EXPR"      : print_with_value(PC.toString(expr), format(value.value), true),
           "EXPR_TYPE" : expr.type
         }), expr.position);
     },
@@ -218,13 +215,13 @@ module.exports = {
         die(substitute(error_messages.type_check, {
           "OP"         : expr.operator,
           "TYPE"       : "number",
-          "EXPR"       : toString(expr),
+          "EXPR"       : PC.toString(expr),
           "EXPR_VALUE" : format(value.value),
           "EXPR_TYPE"  : value.type
         }), expr.position);
       if (value.value == 0)
         die(substitute(error_messages.check_zero_division, {
-          "EXPR" : toString(expr),
+          "EXPR" : PC.toString(expr),
           "_"    : value.type == "number" ? "" : " = " + value.value
         }), expr.position);
     },
@@ -232,9 +229,9 @@ module.exports = {
       if (!((a_value.type == "number" && b_value.type == "number") ||
             (a_value.type == "string" && b_value.type == "string")))
         die(substitute(error_messages.plus_operator_type_check, {
-          "A_EXPR" : toString(a),
+          "A_EXPR" : PC.toString(a),
           "A_TYPE" : a_value.type,
-          "B_EXPR" : toString(b),
+          "B_EXPR" : PC.toString(b),
           "B_TYPE" : b_value.type
         }), expr.position);
     },
@@ -242,16 +239,16 @@ module.exports = {
       if (value.dimension > 0)
         die(substitute(error_messages.check_dimension, {
           "OP"   : expr.operator,
-          "EXPR" : toString(expr),
+          "EXPR" : PC.toString(expr),
           "TYPE" : getDimension(expr)
         }), expr.position);
     },
     operator_same_type: function(op, a, b) {
       if (a.type != b.type)
         die(substitute(error_messages.operator_same_type, {
-          "EXPR1" : toString(a),
+          "EXPR1" : PC.toString(a),
           "TYPE1" : a.type,
-          "EXPR2" : toString(b),
+          "EXPR2" : PC.toString(b),
           "TYPE2" : b.type
         }), op.position);
     },
@@ -264,13 +261,13 @@ module.exports = {
     unary_only: function(op) {
       die(substitute(error_messages.operator_unary_only, {
         "OP"      : op.operator,
-        "EXPR"    : toString(op)
+        "EXPR"    : PC.toString(op)
       }), op.position);
     },
     binary_only: function(op) {
       die(substitute(error_messages.operator_binary_only, {
         "OP"      : op.operator,
-        "EXPR"    : toString(op)
+        "EXPR"    : PC.toString(op)
       }), op.position);
     },
     operator_cannot_apply: function(op) {
@@ -291,11 +288,11 @@ module.exports = {
           "ARG_NAME"    : def_arg.name,
           "ARG_TYPE"    : getDimension(def_arg),
           "EXPR_TYPE"   : getDimension(call_arg),
-          "EXPR"        : toString(call_arg)
+          "EXPR"        : PC.toString(call_arg)
         }), call.position);
       if (def_arg.type !== call_arg.type) {
-        var expr = toString(call_argument_name);
-        var expr_value = toString(call_arg);
+        var expr = PC.toString(call_argument_name);
+        var expr_value = PC.toString(call_arg);
         die(substitute(error_messages.argument_check_type, {
           "ARG_NAME"    : def_arg.name,
           "IS/CONTAINS" : def_arg.dimension > 0 ? "contains" : "is",
@@ -309,62 +306,62 @@ module.exports = {
     check_indexing: function(expr, array, index) {
       if (!array.value)
         die(substitute(error_messages.check_if_initialized, {
-          "VARIABLE" : toString(expr.value)
+          "VARIABLE" : PC.toString(expr.value)
         }), expr.position);
       if (!index)
         die(substitute(error_messages.check_if_initialized, {
-          "VARIABLE" : toString(expr.index)
+          "VARIABLE" : PC.toString(expr.index)
         }), expr.position);
       if (array.dimension == 0)
         die(substitute(error_messages.argument_check_array, {
-          "EXPR" : toString(array)
+          "EXPR" : PC.toString(array)
         }), array.position);
       if (index.type != "number")
         die(substitute(error_messages.argument_check_type, {
-          "EXPR" : toString(index),
+          "EXPR" : PC.toString(index),
           "TYPE" : index.type
         }), expr.position);
       if (index.dimension != 0)
         die(substitute(error_messages.argument_check_dimension, {
-          "EXPR" : toString(index),
+          "EXPR" : PC.toString(index),
           "TYPE" : getDimension(index)
         }), expr.position);
       if (index.value != Math.floor(index.value)){
         var index_expr =
         die(substitute(error_messages.index_is_not_whole_number, {
-          "EXPR"  : toString(expr),
-          "INDEX" : print_with_value(toString(expr.index), index.value)
+          "EXPR"  : PC.toString(expr),
+          "INDEX" : print_with_value(PC.toString(expr.index), index.value)
         }), expr.position);
       }
       if (index.value < 0)
         die(substitute(error_messages.check_indexing_negative, {
-          "INDEX" : print_with_value(toString(expr.index), format(index.value), true),
-          "EXPR"  : toString(expr)
+          "INDEX" : print_with_value(PC.toString(expr.index), format(index.value), true),
+          "EXPR"  : PC.toString(expr)
         }), expr.position);
       if (index.value == array.value.length)
         die(substitute(error_messages.check_indexing_equal, {
-          "EXPR"  : print_with_value(toString(expr.index), index.value),
+          "EXPR"  : print_with_value(PC.toString(expr.index), index.value),
           "#"     : array.value.length
         }), expr.position);
       if (index.value > array.value.length)
         die(substitute(error_messages.check_indexing_larger, {
-          "EXPR"  : print_with_value(toString(expr.index), index.value),
+          "EXPR"  : print_with_value(PC.toString(expr.index), index.value),
           "#"     : array.value.length
         }), expr.position);
     },
     array_assign_check: function(left, right, expr) {
       if (left.type !== right.type)
         die(substitute(error_messages.array_assign_check_type, {
-          "LEFT_EXPR"  : toString(left),
+          "LEFT_EXPR"  : PC.toString(left),
           "LEFT_TYPE"  : left.type,
-          "RIGHT_EXPR" : toString(right),
+          "RIGHT_EXPR" : PC.toString(right),
           "RIGHT_TYPE" : right.type
         }), expr.position);
       if (left.dimension !== right.dimension)
         die(substitute(error_messages.array_assign_check_type, {
-          "LEFT_EXPR"  : toString(left),
+          "LEFT_EXPR"  : PC.toString(left),
           "LEFT_TYPE"  : getDimension(left),
-          "RIGHT_EXPR" : toString(right),
+          "RIGHT_EXPR" : PC.toString(right),
           "RIGHT_TYPE" : getDimension(right)
         }), expr.position);
     }
@@ -374,7 +371,7 @@ module.exports = {
 function format(value) {
   if (value.constructor === Array || typeof value === 'object')
       return JSON.stringify(value);
-  return value.toString();
+  return value.PC.toString();
 }
 
 function die(msg, pos) {
@@ -405,108 +402,4 @@ function print_with_value(expr, value) {
 }
 function reverseString(str) {
   return str.split( '' ).reverse( ).join( '' );
-}
-function new_var_toString(ast, indent) {
-  var str = indent + KW.VARIABLES + ":";
-  var array = [];
-  ast.vars.forEach(function(line) {
-    array.push(line.names.join(", ") + " : " + line.type);
-  });
-  if (array.length != 1) str += "\n" + INDENT + indent;
-  else str += " ";
-  return str + array.join(',\n' + INDENT + indent);
-}
-function prod_if(ast, indent) {
-  var str = indent + KW.IF + " " + toString(ast.cond[0]) + " " + KW.THEN + "\n";
-  str += toString(ast.then[0], indent + INDENT) + "\n";
-  for (i = 1; i < ast.cond.length; i++) {
-    str += indent + KW.ELSE + " " + KW.IF + " " + toString(ast.cond[i], indent + INDENT) + " " + KW.THEN + "\n";
-    str += toString(ast.then[i], indent + INDENT) + "\n";
-  }
-  if (ast.else)
-    str += indent + KW.ELSE + "\n" + toString(ast.else, indent + INDENT) + "\n";
-  return str + indent + KW.END + " " + KW.IF;
-}
-function new_function(ast, indent) {
-  var str = indent + KW.FUNCTION + " (";
-  var array = [];
-  ast.vars.forEach(function(item) {
-    array.push(item.name + ":" + item.type);
-  });
-  str += array.join(", ") + ")\n";
-  str += toString(ast.body, indent + INDENT);
-  return str + "\n" + indent + KW.END + " " + KW.FUNCTION;
-}
-function toString(ast, indent="") {
-  switch (ast.type) {
-    case "number":
-    case "var":
-      return ast.value;
-
-    case "bool":
-      return ast.value ? KW.TRUE : KW.FALSE;
-
-    case "string":
-      return "\"" + ast.value + "\"";
-
-    case "indexing":
-      return toString(ast.value) + "[" + toString(ast.index) + "]";
-
-    case "new_var":
-      return new_var_toString(ast, indent);
-
-    case "new_array":
-      var array = [];
-      ast.value.forEach(function(item) {
-        array.push(toString(item));
-      });
-      return "[" + array.join(",") + "]";
-
-    case "assign":
-      return  indent + toString(ast.left) + " ← " + toString(ast.right);
-
-    case "unary":
-      return ast.operator + (ast.operator == '-' ? "" : " ") + toString(ast.value);
-
-    case "binary":
-      return toString(ast.left) + " " + ast.operator + " " + toString(ast.right);
-
-    case "function":
-      return new_function(ast, indent);
-
-    case "if":
-      return prod_if(ast, indent);
-
-    case "while":
-      var str = indent + KW.WHILE + " " + ast.cond + "\n";
-      str += toString(ast.body, indent + INDENT);
-      return str + "\n" + indent + KW.END + " " + KW.WHILE;
-
-    case "prog":
-      var array = [];
-      ast.prog.forEach(function(expr){
-        array.push(toString(expr, indent));
-      });
-      return array.join("\n");
-
-    case "call":
-      var str = indent + ast.func.value + "(";
-      var array = [];
-      ast.args.forEach(function(item) {
-        array.push(toString(item));
-      });
-      return str + array.join(", ") + ")";
-
-    case "newline":
-      return indent;
-
-    default:
-      die(substitute(error_messages.do_not_know_how_to_stringify, {
-        "EXPR" : ast.type
-      }), ast.position);
-  }
-}
-function print_ast(ast) {
-	const util = require('util')
-	console.log(util.inspect(ast, {showHidden: false, depth: null}))
 }
