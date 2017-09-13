@@ -276,7 +276,7 @@ module.exports = {
       }), op.position);
     },
     argument_number_check: function(def_args, call_args, expr) {
-      if (call_args.length - 1 != def_args.length)
+      if (call_args.length != def_args.length)
         die(substitute(error_messages.argument_number_check, {
           "EXP_ARGS"   : def_args.length,
           "GIVEN_ARGS" : call_args.length

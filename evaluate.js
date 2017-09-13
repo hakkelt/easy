@@ -55,12 +55,21 @@ function evaluate(expr, env, log) {
       return null;
 
     case "call":
-      var func = evaluate(expr.func, env).value;
-      var temp = [expr].concat(expr.args.map(function(arg){
-        return evaluate(arg, env);
-      }))
-      //console.log(temp);
-      return func.apply(null, temp);
+      var func = evaluate(expr.func, env);
+      if (func.dimension == undefined) {
+        func = func.value;
+        var temp = [expr].concat(expr.args.map(function(arg){
+          return evaluate(arg, env);
+        }));
+        return func.apply(null, temp);
+      } else {
+        var call_args = expr.args.map(function(arg){
+          var ret = evaluate(arg, env);
+          ret.name = arg.name;
+          return ret;
+        });
+        return eval_function(func, call_args, env);
+      }
 
     case "newline":
       return null;
@@ -175,19 +184,26 @@ function wrap(type, value, expr) {
   };
 }
 
-function make_function(env, expr) {
-  function lambda() {
-    var args = expr.vars;
-    var scope = env.extend();
-    error.argument_number_check(args, arguments, args[0]);
-    for (var i = 1; i < arguments.length; ++i){
-      error.argument_check(arguments[0], arguments[0].args[i-1], args[i-1], arguments[i]);
-      scope.def(args[i-1].name, wrap(args[i-1].type, arguments[i].value, args[i-1]));
-    }
-    return evaluate(expr.body, scope);
+function eval_function(func, call_args, env) {
+  var def_args = func.value.vars;
+  var scope = env.extend();
+  error.argument_number_check(def_args, call_args, func);
+  for (var i = 0; i < call_args.length; ++i){
+    error.argument_check(func, call_args[i].name, def_args[i], call_args[i]);
+    scope.def(def_args[i].name, call_args[i]);
   }
-  env.def(expr.name, wrap("function", lambda, expr));
-  return lambda;
+  return evaluate(func.value.body, scope);
+}
+
+function make_function(env, expr) {
+  var func = {
+    type: "function",
+    value: { vars: expr.vars, body: expr.body },
+    dimension: 0,
+    position: expr.position
+  };
+  env.def(expr.name, func);
+  return null;
 }
 
 function indexing(expr, env) {
