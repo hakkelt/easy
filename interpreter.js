@@ -15,7 +15,7 @@ function wrap(type, value) {
 }
 // Make sure we got a filename on the command line.
 if (process.argv.length < 3) {
-  console.log('Usage: node ' + process.argv[1] + ' FILENAME');
+  console.log('Usage: node ' + process.argv[1] + ' path_of_your_program');
   process.exit(1);
 }
 // Read the file and print its contents.
@@ -36,10 +36,17 @@ fs.readFile(filename, 'utf8', function(err, code) {
 	var p = require("./parser");
 	var e = require("./evaluate");
 	var error = require("./error");
-	var log = [];
 	var ast = p.parse(t.TokenStream(i.InputStream(code)));
-	//console.log(error.toString(ast));
-	//print_ast(ast)
-	e.evaluate(ast, globalEnv, log);
-	//print_ast(globalEnv);
+	e.evaluate(ast, globalEnv);
+	const fs = require('fs');
+	const util = require('util');
+	const content = util.inspect(e.logger.log, {showHidden: false, depth: null});
+
+	fs.writeFile("logger.txt", content, 'utf8', function (err) {
+	    if (err) {
+	        return console.log(err);
+	    }
+
+	    console.log("The file was saved!");
+	});
 });
