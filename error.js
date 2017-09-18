@@ -1,98 +1,96 @@
-var mode = "console";
-var input;
-var error_messages = require("./error_messages");
 var KW = require("./keywords");
 var PC = require("./printCode");
+var error_messages = require("./error_messages");
+var e = require("./error_functions");
 module.exports = {
-  mode: mode,
   TokenStream: {
     after_else: function(next) {
-      die(substitute(error_messages.after_else, {
+      e.die(e.substitute(error_messages.after_else, {
         "NEXT" : next.value
       }), next.position);
     },
     after_end: function(next) {
-      die(substitute(error_messages.after_end, {
+      e.die(e.substitute(error_messages.after_end, {
         "NEXT" : next.value
       }), next.position);
     },
     check_traditional_equal_sign: function(op, pos) {
-      if (op == "=") die(error_messages.check_traditional_equal_sign, pos);
+      if (op == "=") e.die(error_messages.check_traditional_equal_sign, pos);
     },
     single_quote: function(pos) {
-      die(error_messages.single_quote, pos);
+      e.die(error_messages.single_quote, pos);
     },
     cannot_handle_character: function(ch, pos) {
-      die(substitute(error_messages.cannot_handle_character, {
+      e.die(e.substitute(error_messages.cannot_handle_character, {
         "CHAR" : ch
       }), pos);
     },
     not_known_escape_character: function(ch, pos) {
-      die(substitute(error_messages.not_known_escape_character, {
+      e.die(e.substitute(error_messages.not_known_escape_character, {
         "CHAR" : ch
       }), pos);
     },
     forbidden_new_line: function(pos) {
-      die(error_messages.forbidden_new_line, pos);
+      e.die(error_messages.forbidden_new_line, pos);
     }
   },
   parser: {
     get_confused: function(pos) {
-      die(error_messages.get_confused, pos);
+      e.die(error_messages.get_confused, pos);
     },
     expecting_punctiation: function(ch, pos) {
       if (ch == "\n") ch = "newline";
-      die(substitute(error_messages.expecting_punctiation, {
+      e.die(e.substitute(error_messages.expecting_punctiation, {
         "CHAR" : ch
       }), pos);
     },
     expecting_keyword: function(kw, pos) {
-      die(substitute(error_messages.expecting_keyword, {
+      e.die(e.substitute(error_messages.expecting_keyword, {
         "KEYWORD" : kw
       }), pos);
     },
     expecting_operator: function(op, pos) {
-      die(substitute(error_messages.expecting_operator, {
+      e.die(e.substitute(error_messages.expecting_operator, {
         "OP" : op
       }), pos);
     },
     not_known_word:  function(token) {
-      die(substitute(error_messages.not_known_word, {
+      e.die(e.substitute(error_messages.not_known_word, {
         "TOKEN" : token.value
       }), token.position);
     },
     variable_definition_missing_comma: function(pos) {
-      die(error_messages.variable_definition_missing_comma, { begin: pos, end: pos});
+      e.die(error_messages.variable_definition_missing_comma, { begin: pos, end: pos});
     },
     unexpected_token: function(token) {
-      die(substitute(error_messages.unexpected_token, {
+      e.die(e.substitute(error_messages.unexpected_token, {
         "TOKEN" : token.value
       }), token.position);
     },
     check_var_type_name: function(token) {
       if (token.type != "kw" || KW.variable_types.indexOf(token.value.toLowerCase()) == -1)
-        die(substitute(error_messages.check_var_type_name, {
+        e.die(e.substitute(error_messages.check_var_type_name, {
         "TOKEN" : token.value
       }), token.position);
     },
     check_var_name: function(token, pos) {
-      die(substitute(error_messages.check_var_name, {
+      e.die(e.substitute(error_messages.check_var_name, {
         "TOKEN" : token
       }), token.position);
     },
     check_prog_length: function(prog, block_name) {
       if (prog.length == 0)
-        die(substitute(error_messages.check_prog_length, {
+        e.die(e.substitute(error_messages.check_prog_length, {
         "TOKEN" : block_name.type
       }), token.position);
     },
     check_function_name: function(name) {
       if (name.type == "kw")
-        die(substitute(error_messages.check_function_name_kw, {
+        e.die(e.substitute(error_messages.check_function_name_kw, {
         "KW" : name.value
       }), name.position);
       if (name.type != "var")
-        die(substitute(error_messages.check_function_name, {
+        e.die(e.substitute(error_messages.check_function_name, {
         "KW" : name.value
       }), name.position);
     },
@@ -100,7 +98,7 @@ module.exports = {
       for (i = 0; i < values.length; i++)
           if (values[i].dimension != values[0].dimension)
             if(values[i].dimension > 0 && values[0].dimension > 0)
-              die(substitute(error_messages.new_array_check_dimension, {
+              e.die(e.substitute(error_messages.new_array_check_dimension, {
                 "EXPR"          : PC.toString(values[i]),
                 "CURRENT_TYPE"  : values[i].dimension,
                 "IS/CONTAINS_1" : "contains",
@@ -108,7 +106,7 @@ module.exports = {
                 "IS/CONTAINS_2" : "contained"
               }), values[i]);
             else if(values[i].dimension == 0 && values[0].dimension > 0)
-              die(substitute(error_messages.new_array_check_dimension, {
+              e.die(e.substitute(error_messages.new_array_check_dimension, {
                 "EXPR"          : PC.toString(values[i]),
                 "CURRENT_TYPE"  : values[i].dimension,
                 "IS/CONTAINS_1" : "is",
@@ -116,7 +114,7 @@ module.exports = {
                 "IS/CONTAINS_2" : "contained"
               }), values[i]);
             else if(values[i].dimension > 0 && values[0].dimension == 0)
-              die(substitute(error_messages.new_array_check_dimension, {
+              e.die(e.substitute(error_messages.new_array_check_dimension, {
                 "EXPR"          : PC.toString(values[i]),
                 "CURRENT_TYPE"  : values[i].dimension,
                 "IS/CONTAINS_1" : "contains",
@@ -124,7 +122,7 @@ module.exports = {
                 "IS/CONTAINS_2" : "was"
               }), values[i]);
             else
-              die(substitute(error_messages.new_array_check_dimension, {
+              e.die(e.substitute(error_messages.new_array_check_dimension, {
                 "EXPR"          : PC.toString(values[i]),
                 "CURRENT_TYPE"  : values[i].dimension,
                 "IS/CONTAINS_1" : "is",
@@ -136,36 +134,36 @@ module.exports = {
   environment: {
     check_if_defined: function(name, scope) {
       if (!scope)
-        die(substitute(error_messages.check_if_defined, {
+        e.die(e.substitute(error_messages.check_if_defined, {
           "VARIABLE" : name.value
         }), name.position);
     },
     check_if_initialized: function(name, env) {
       if (!env.vars[name.value.toLowerCase()])
-        die(substitute(error_messages.check_if_initialized, {
+        e.die(e.substitute(error_messages.check_if_initialized, {
           "VARIABLE" : name.value
         }), name.position);
     },
     check_dimension: function(name, variable, value) {
       if (variable.dimension !== value.dimension) {
-        die(substitute(error_messages.check_dimension, {
+        e.die(e.substitute(error_messages.check_dimension, {
           "VAR_NAME"   : name,
-          "VAR_TYPE"   : getDimension(variable),
-          "EXPR"       : print_with_value(PC.toString(value), format(value.value), true),
-          "EXPR_TYPE"  : getDimension(value),
+          "VAR_TYPE"   : e.getDimension(variable),
+          "EXPR"       : e.print_with_value(PC.toString(value), e.format(value.value), true),
+          "EXPR_TYPE"  : e.getDimension(value),
         }), value.position);
       }
     },
     check_array_type: function(name, variable, value) {
       if (variable.dimension !== value.dimension)
-        die(substitute(error_messages.assignment_check_type, {
+        e.die(e.substitute(error_messages.assignment_check_type, {
           "VAR_NAME"    : name,
-          "VAR_TYPE"    : getDimension(variable),
+          "VAR_TYPE"    : e.getDimension(variable),
           "EXPR"        : PC.toString(value),
-          "EXPR_TYPE"   : getDimension(value)
+          "EXPR_TYPE"   : e.getDimension(value)
         }), value.position);
       if (variable.type !== value.type)
-        die(substitute(error_messages.assignment_check_type, {
+        e.die(e.substitute(error_messages.assignment_check_type, {
           "VAR_NAME"    : PC.toString(name),
           "IS/CONTAINS" : variable.dimension > 0 ? "contains" : "is",
           "VAR_TYPE"    : variable.type + (variable.dimension > 0 ? "s" : ""),
@@ -176,51 +174,51 @@ module.exports = {
     },
     check_redefinition: function(name, env, pos) {
       if (Object.prototype.hasOwnProperty.call(env.vars, name.toLowerCase()))
-        die(substitute(error_messages.check_redefinition, {
+        e.die(e.substitute(error_messages.check_redefinition, {
           "VARIABLE" : name
         }), pos);
     },
   },
   evaluate: {
     assignment_error: function(expr) {
-      die(substitute(error_messages.assignment_error, {
-        "EXPR"  : print_with_value(PC.toString(expr), format(PC.toString(expr)), true),
+      e.die(e.substitute(error_messages.assignment_error, {
+        "EXPR"  : e.print_with_value(PC.toString(expr), e.format(PC.toString(expr)), true),
         "TYPE"  : expr.type
       }), expr.position);
     },
     new_array_typeCheck: function(Old, New, pos) {
       if (!Old || New.type == Old.type) return;
-      die(substitute(error_messages.new_array_typeCheck, {
-          "NEW_VALUE" : format(New.value),
+      e.die(e.substitute(error_messages.new_array_typeCheck, {
+          "NEW_VALUE" : e.format(New.value),
           "NEW_TYPE"  : New.type,
           "OLD_TYPE"  : Old.type
       }), pos);
     },
-    mystery: function(expr) {
-      die(substitute(error_messages.do_not_know_how_to_evaluate, {
+    do_not_know_how_to_evaluate: function(expr) {
+      e.die(e.substitute(error_messages.do_not_know_how_to_evaluate, {
         "EXPR" : PC.toString(expr)
       }), expr.position);
     },
     type_check: function(operator, type, expr, value) {
       if (value.type !== type)
-        die(substitute(error_messages.type_check, {
+        e.die(e.substitute(error_messages.type_check, {
           "OP"        : operator,
           "TYPE"      : type,
-          "EXPR"      : print_with_value(PC.toString(expr), format(value.value), true),
+          "EXPR"      : e.print_with_value(PC.toString(expr), e.format(value.value), true),
           "EXPR_TYPE" : expr.type
         }), expr.position);
     },
     check_zero_division: function(expr, value) {
       if (value.type !== "number")
-        die(substitute(error_messages.type_check, {
+        e.die(e.substitute(error_messages.type_check, {
           "OP"         : expr.operator,
           "TYPE"       : "number",
           "EXPR"       : PC.toString(expr),
-          "EXPR_VALUE" : format(value.value),
+          "EXPR_VALUE" : e.format(value.value),
           "EXPR_TYPE"  : value.type
         }), expr.position);
       if (value.value == 0)
-        die(substitute(error_messages.check_zero_division, {
+        e.die(e.substitute(error_messages.check_zero_division, {
           "EXPR" : PC.toString(expr),
           "_"    : value.type == "number" ? "" : " = " + value.value
         }), expr.position);
@@ -228,7 +226,7 @@ module.exports = {
     plus_operator_type_check: function(a, a_value, b, b_value, expr) {
       if (!((a_value.type == "number" && b_value.type == "number") ||
             (a_value.type == "string" && b_value.type == "string")))
-        die(substitute(error_messages.plus_operator_type_check, {
+        e.die(e.substitute(error_messages.plus_operator_type_check, {
           "A_EXPR" : PC.toString(a),
           "A_TYPE" : a_value.type,
           "B_EXPR" : PC.toString(b),
@@ -237,15 +235,15 @@ module.exports = {
     },
     operator_dimension_check: function(expr, value) {
       if (value.dimension > 0)
-        die(substitute(error_messages.check_dimension, {
+        e.die(e.substitute(error_messages.check_dimension, {
           "OP"   : expr.operator,
           "EXPR" : PC.toString(expr),
-          "TYPE" : getDimension(expr)
+          "TYPE" : e.getDimension(expr)
         }), expr.position);
     },
     operator_same_type: function(op, a, b) {
       if (a.type != b.type)
-        die(substitute(error_messages.operator_same_type, {
+        e.die(e.substitute(error_messages.operator_same_type, {
           "EXPR1" : PC.toString(a),
           "TYPE1" : a.type,
           "EXPR2" : PC.toString(b),
@@ -253,47 +251,47 @@ module.exports = {
         }), op.position);
     },
     operator_reverse_order: function(op) {
-      die(substitute(error_messages.operator_reverse_order, {
+      e.die(e.substitute(error_messages.operator_reverse_order, {
         "OP"     : op.operator,
-        "REV_OP" : reverseString(op.operator)
+        "REV_OP" : e.reverseString(op.operator)
       }), op.position);
     },
     unary_only: function(op) {
-      die(substitute(error_messages.operator_unary_only, {
+      e.die(e.substitute(error_messages.operator_unary_only, {
         "OP"      : op.operator,
         "EXPR"    : PC.toString(op)
       }), op.position);
     },
     binary_only: function(op) {
-      die(substitute(error_messages.operator_binary_only, {
+      e.die(e.substitute(error_messages.operator_binary_only, {
         "OP"      : op.operator,
         "EXPR"    : PC.toString(op)
       }), op.position);
     },
     operator_cannot_apply: function(op) {
-      die(substitute(error_messages.operator_cannot_apply, {
+      e.die(e.substitute(error_messages.operator_cannot_apply, {
         "OP"     : op.operator
       }), op.position);
     },
     argument_number_check: function(def_args, call_args, expr) {
       if (call_args.length != def_args.length)
-        die(substitute(error_messages.argument_number_check, {
+        e.die(e.substitute(error_messages.argument_number_check, {
           "EXP_ARGS"   : def_args.length,
           "GIVEN_ARGS" : call_args.length
         }), expr.position);
     },
     argument_check: function(call, call_argument_name, def_arg, call_arg) {
       if (def_arg.dimension !== call_arg.dimension)
-        die(substitute(error_messages.argument_check_type, {
+        e.die(e.substitute(error_messages.argument_check_type, {
           "ARG_NAME"    : def_arg.name,
-          "ARG_TYPE"    : getDimension(def_arg),
-          "EXPR_TYPE"   : getDimension(call_arg),
+          "ARG_TYPE"    : e.getDimension(def_arg),
+          "EXPR_TYPE"   : e.getDimension(call_arg),
           "EXPR"        : PC.toString(call_arg)
         }), call.position);
       if (def_arg.type !== call_arg.type) {
         var expr = PC.toString(call_argument_name);
         var expr_value = PC.toString(call_arg);
-        die(substitute(error_messages.argument_check_type, {
+        e.die(e.substitute(error_messages.argument_check_type, {
           "ARG_NAME"    : def_arg.name,
           "IS/CONTAINS" : def_arg.dimension > 0 ? "contains" : "is",
           "ARG_TYPE"    : def_arg.type + (def_arg.dimension > 0 ? "s" : ""),
@@ -305,101 +303,65 @@ module.exports = {
     },
     check_indexing: function(expr, array, index) {
       if (!array.value)
-        die(substitute(error_messages.check_if_initialized, {
+        e.die(e.substitute(error_messages.check_if_initialized, {
           "VARIABLE" : PC.toString(expr.value)
         }), expr.position);
       if (!index)
-        die(substitute(error_messages.check_if_initialized, {
+        e.die(e.substitute(error_messages.check_if_initialized, {
           "VARIABLE" : PC.toString(expr.index)
         }), expr.position);
       if (array.dimension == 0)
-        die(substitute(error_messages.argument_check_array, {
+        e.die(e.substitute(error_messages.argument_check_array, {
           "EXPR" : PC.toString(array)
         }), array.position);
       if (index.type != "number")
-        die(substitute(error_messages.argument_check_type, {
+        e.die(e.substitute(error_messages.argument_check_type, {
           "EXPR" : PC.toString(index),
           "TYPE" : index.type
         }), expr.position);
       if (index.dimension != 0)
-        die(substitute(error_messages.argument_check_dimension, {
+        e.die(e.substitute(error_messages.argument_check_dimension, {
           "EXPR" : PC.toString(index),
-          "TYPE" : getDimension(index)
+          "TYPE" : e.getDimension(index)
         }), expr.position);
       if (index.value != Math.floor(index.value)){
         var index_expr =
-        die(substitute(error_messages.index_is_not_whole_number, {
+        e.die(e.substitute(error_messages.index_is_not_whole_number, {
           "EXPR"  : PC.toString(expr),
-          "INDEX" : print_with_value(PC.toString(expr.index), index.value)
+          "INDEX" : e.print_with_value(PC.toString(expr.index), index.value)
         }), expr.position);
       }
       if (index.value < 0)
-        die(substitute(error_messages.check_indexing_negative, {
-          "INDEX" : print_with_value(PC.toString(expr.index), format(index.value), true),
+        e.die(e.substitute(error_messages.check_indexing_negative, {
+          "INDEX" : e.print_with_value(PC.toString(expr.index), e.format(index.value), true),
           "EXPR"  : PC.toString(expr)
         }), expr.position);
       if (index.value == array.value.length)
-        die(substitute(error_messages.check_indexing_equal, {
-          "EXPR"  : print_with_value(PC.toString(expr.index), index.value),
+        e.die(e.substitute(error_messages.check_indexing_equal, {
+          "EXPR"  : e.print_with_value(PC.toString(expr.index), index.value),
           "#"     : array.value.length
         }), expr.position);
       if (index.value > array.value.length)
-        die(substitute(error_messages.check_indexing_larger, {
-          "EXPR"  : print_with_value(PC.toString(expr.index), index.value),
+        e.die(e.substitute(error_messages.check_indexing_larger, {
+          "EXPR"  : e.print_with_value(PC.toString(expr.index), index.value),
           "#"     : array.value.length
         }), expr.position);
     },
     array_assign_check: function(left, right, expr) {
       if (left.type !== right.type)
-        die(substitute(error_messages.array_assign_check_type, {
+        e.die(e.substitute(error_messages.array_assign_check_type, {
           "LEFT_EXPR"  : PC.toString(left),
           "LEFT_TYPE"  : left.type,
           "RIGHT_EXPR" : PC.toString(right),
           "RIGHT_TYPE" : right.type
         }), expr.position);
       if (left.dimension !== right.dimension)
-        die(substitute(error_messages.array_assign_check_type, {
+        e.die(e.substitute(error_messages.array_assign_check_type, {
           "LEFT_EXPR"  : PC.toString(left),
-          "LEFT_TYPE"  : getDimension(left),
+          "LEFT_TYPE"  : e.getDimension(left),
           "RIGHT_EXPR" : PC.toString(right),
-          "RIGHT_TYPE" : getDimension(right)
+          "RIGHT_TYPE" : e.getDimension(right)
         }), expr.position);
     }
   }
-}
-
-function format(value) {
-  if (value.constructor === Array || typeof value === 'object')
-      return JSON.stringify(value);
-  return value.PC.toString();
-}
-
-function die(msg, pos) {
-  if (mode == "console")
-    throw new Error(msg.title + ": " + msg.msg + " (" + pos.begin.line + ":" + pos.begin.col + ")");
-  if (mode == "object")
-    throw new Error({
-      title    : msg.title,
-      msg      : msg.msg,
-      position : pos
-    });
-  throw new Error("Unknown mode: " + mode);
-}
-function substitute(msg, substitutes) {
-  for (var key in substitutes)
-    msg.msg = msg.msg.replace(key, substitutes[key]);
-  return msg;
-}
-function getDimension(expr) {
-  return (expr.dimension > 0 ? expr.dimension + "D array" : "scalar value")
-}
-function wipe(str) {
-  return String(str).replace(" ", "");
-}
-function print_with_value(expr, value) {
-  var longer = wipe(expr) != wipe(value);
-  return qouted_expr = (longer ? "'" + expr + "'" : expr) + (!longer ? "" : " (= " + value + ")");
-}
-function reverseString(str) {
-  return str.split( '' ).reverse( ).join( '' );
 }

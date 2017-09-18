@@ -1,8 +1,11 @@
 var INDENT = "    ";
 var KW = require("./keywords");
+var error_messages = require("./error_messages");
+var e = require("./error_functions");
 module.exports = {
   indent: INDENT,
-  toString: toString
+  toString: toString,
+  print_tree: print_tree
 }
 function new_var_toString(ast, indent) {
   var str = indent + KW.VARIABLES + ":";
@@ -99,12 +102,13 @@ function toString(ast, indent="") {
       return indent;
 
     default:
-      die(substitute(error_messages.do_not_know_how_to_stringify, {
+    console.log(ast);
+      e.die(e.substitute(error_messages.do_not_know_how_to_stringify, {
         "EXPR" : ast.type
       }), ast.position);
   }
 }
-function print_ast(ast) {
-	const util = require('util')
-	console.log(util.inspect(ast, {showHidden: false, depth: null}))
+function print_tree(ast) {
+	const util = require('util');
+	util.inspect(ast, {showHidden: false, depth: null});
 }

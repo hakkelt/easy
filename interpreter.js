@@ -1,10 +1,3 @@
-function print_ast(ast) {
-	const util = require('util')
-	console.log(util.inspect(ast, {showHidden: false, depth: null}))
-}
-
-/* -----[ entry point for NodeJS ]----- */
-
 function wrap(type, value) {
   return {
       type      : type,
@@ -35,7 +28,6 @@ fs.readFile(filename, 'utf8', function(err, code) {
 	var t = require("./tokenStream");
 	var p = require("./parser");
 	var e = require("./evaluate");
-	var error = require("./error");
 	var ast = p.parse(t.TokenStream(i.InputStream(code)));
 	e.evaluate(ast, globalEnv);
 	const fs = require('fs');

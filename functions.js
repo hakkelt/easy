@@ -6,6 +6,7 @@ module.exports = {
           process.stdout.write(" ");
       }
       process.stdout.write("\n");
+      return null;
     },
     print : function(){
       for (i = 1; i < arguments.length; i++){
@@ -13,6 +14,7 @@ module.exports = {
         if (i < arguments.length - 1)
           process.stdout.write(" ");
       }
+      return null;
     },
     read : read,
 }
