@@ -10,30 +10,30 @@ function evaluate(expr, env) {
     case "number":
     case "string":
     case "bool":
-      return eval.logger.set(current_log_index, expr);
+      return eval.logger.set(current_log_index, expr, expr);
 
     case "indexing":
-      return eval.logger.set(current_log_index, indexing(expr, env));
+      return eval.logger.set(current_log_index, indexing(expr, env), expr);
 
     case "var":
-      return eval.logger.set(current_log_index, env.get(expr));
+      return eval.logger.set(current_log_index, env.get(expr), expr);
 
     case "new_var":
       return new_var(expr, env);
 
     case "new_array":
-      return eval.logger.set(current_log_index, new_array(expr, env));
+      return eval.logger.set(current_log_index, new_array(expr, env), expr);
 
     case "assign":
       if (expr.left.type == "var")
-        return eval.logger.set(current_log_index, env.set(expr.left, evaluate(expr.right, env), expr));
+        return eval.logger.set(current_log_index, env.set(expr.left, evaluate(expr.right, env), expr), expr);
       if (expr.left.type == "indexing")
-        return eval.logger.set(current_log_index, array_assign(expr, env));
+        return eval.logger.set(current_log_index, array_assign(expr, env), expr);
       error.assignment_error(expr.left);
 
     case "unary":
     case "binary":
-      return eval.logger.set(current_log_index, apply_op(expr, env));
+      return eval.logger.set(current_log_index, apply_op(expr, env), expr);
 
     case "function":
       return make_function(env, expr);
@@ -61,14 +61,14 @@ function evaluate(expr, env) {
         var temp = [expr].concat(expr.args.map(function(arg){
           return evaluate(arg, env);
         }));
-        return eval.logger.set(current_log_index, func.apply(null, temp));
+        return eval.logger.set(current_log_index, func.apply(null, temp), expr);
       } else {
         var call_args = expr.args.map(function(arg){
           var ret = evaluate(arg, env);
           ret.name = arg.name;
           return ret;
         });
-        return eval.logger.set(current_log_index, eval_function(func, call_args, env));
+        return eval.logger.set(current_log_index, eval_function(func, call_args, env), expr);
       }
 
     case "newline":
