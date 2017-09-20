@@ -39,7 +39,7 @@ module.exports = {
       e.die(error_messages.get_confused, pos);
     },
     expecting_punctiation: function(ch, pos) {
-      if (ch == "\n") ch = "newline";
+      if (ch == "\n") ch = "line break";
       e.die(e.substitute(error_messages.expecting_punctiation, {
         "CHAR" : ch
       }), pos);
@@ -54,6 +54,11 @@ module.exports = {
         "OP" : op
       }), pos);
     },
+    expecting_var_name: function(id) {
+      e.die(e.substitute(error_messages.expecting_var_name, {
+        "ID"  : id.value
+      }), id.position);
+    },
     not_known_word:  function(token) {
       e.die(e.substitute(error_messages.not_known_word, {
         "TOKEN" : token.value
@@ -64,7 +69,7 @@ module.exports = {
     },
     unexpected_token: function(token) {
       e.die(e.substitute(error_messages.unexpected_token, {
-        "TOKEN" : token.value
+        "TOKEN" : (token.value == '\n' ? "line break" : token.value)
       }), token.position);
     },
     check_var_type_name: function(token) {
@@ -209,10 +214,10 @@ module.exports = {
         }), expr.position);
     },
     check_zero_division: function(expr, value) {
-      if (value.type !== "number")
+      if (value.type !== KW.NUMBER)
         e.die(e.substitute(error_messages.type_check, {
           "OP"         : expr.operator,
-          "TYPE"       : "number",
+          "TYPE"       : KW.NUMBER,
           "EXPR"       : PC.toString(expr),
           "EXPR_VALUE" : e.format(value.value),
           "EXPR_TYPE"  : value.type
@@ -220,12 +225,12 @@ module.exports = {
       if (value.value == 0)
         e.die(e.substitute(error_messages.check_zero_division, {
           "EXPR" : PC.toString(expr),
-          "_"    : value.type == "number" ? "" : " = " + value.value
+          "_"    : value.type == KW.NUMBER ? "" : " = " + value.value
         }), expr.position);
     },
     plus_operator_type_check: function(a, a_value, b, b_value, expr) {
-      if (!((a_value.type == "number" && b_value.type == "number") ||
-            (a_value.type == "string" && b_value.type == "string")))
+      if (!((a_value.type == KW.NUMBER && b_value.type == KW.NUMBER) ||
+            (a_value.type == KW.STRING && b_value.type == KW.STRING)))
         e.die(e.substitute(error_messages.plus_operator_type_check, {
           "A_EXPR" : PC.toString(a),
           "A_TYPE" : a_value.type,
@@ -314,7 +319,7 @@ module.exports = {
         e.die(e.substitute(error_messages.argument_check_array, {
           "EXPR" : PC.toString(array)
         }), array.position);
-      if (index.type != "number")
+      if (index.type != KW.NUMBER)
         e.die(e.substitute(error_messages.argument_check_type, {
           "EXPR" : PC.toString(index),
           "TYPE" : index.type

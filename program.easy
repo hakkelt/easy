@@ -1,9 +1,8 @@
 
-varIables:
-	A,b:numbers,
-	c:number,
-	d:aRray of ArraYs of arrays OF numbers,
-	áj:string
+varIable A,b: numbers
+variable	c: number
+variable	d: aRray of ArraYs of arrays OF numbers
+variable	áj: text
 
 a ← 1
 b ← 4
@@ -11,7 +10,7 @@ d ← [[[2, 3, 5],[8,6],[1,2,3]],[[0]]]
 áj <- "árvíztűrő\
  tükörfúrógép"
 
-variables: asdf:number
+variable asdf: number
 
 Function Kiir(a:number, e:number)
 

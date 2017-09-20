@@ -40,14 +40,14 @@ function new_function(ast, indent) {
 }
 function toString(ast, indent="") {
   switch (ast.type) {
-    case "number":
+    case KW.NUMBER:
     case "var":
       return ast.value;
 
-    case "bool":
+    case KW.BOOL:
       return ast.value ? KW.TRUE : KW.FALSE;
 
-    case "string":
+    case KW.STRING:
       return "\"" + ast.value + "\"";
 
     case "indexing":

@@ -1,5 +1,6 @@
 var error = require("./error").evaluate;
 var logger = require("./logger");
+const KW = require("./keywords");
 var eval = module.exports = {
     evaluate: evaluate,
     logger: logger
@@ -8,9 +9,9 @@ var eval = module.exports = {
 function evaluate(expr, env) {
   var current_log_index = logger.add(expr);
   switch (expr.type) {
-    case "number":
-    case "string":
-    case "bool":
+    case KW.NUMBER:
+    case KW.STRING:
+    case KW.BOOL:
       return logger.set(current_log_index, expr, expr);
 
     case "indexing":
@@ -81,10 +82,8 @@ function evaluate(expr, env) {
 }
 
 function new_var(expr, env) {
-  expr.vars.forEach(function(vars_of_one_type) {
-    vars_of_one_type.names.forEach(function(var_name) {
-      env.def(var_name, wrap(vars_of_one_type.type, null, vars_of_one_type));
-    });
+  expr.vars.names.forEach(function(var_name) {
+    env.def(var_name, wrap(expr.vars.type, null, expr.vars));
   });
   return null;
 }
@@ -109,7 +108,7 @@ function apply_op(expr, env) {
     return value;
   }
   function num(x) {
-    return get(x, "number").value;
+    return get(x, KW.NUMBER).value;
   }
   function div(x) {
     var value = num(x);
@@ -117,10 +116,10 @@ function apply_op(expr, env) {
     return value.value;
   }
   function bool(x) {
-    return get(x, "bool").value;
+    return get(x, KW.BOOL).value;
   }
   function str(x) {
-    return get(x, "string").value;
+    return get(x, KW.STRING).value;
   }
   function equal(a, b) {
     var left = evaluate(a, env);
@@ -145,19 +144,19 @@ function apply_op(expr, env) {
         var b_value = get(b, null);
         error.plus_operator_type_check(a, a_value, b, b_value, expr);
         return wrap_op_result(a_value.type, a_value.value + b_value.value, expr);
-      case "-"  : return wrap_op_result("number", num(a) - num(b), expr);
-      case "*"  : return wrap_op_result("number", num(a) * num(b), expr);
-      case "/"  : return wrap_op_result("number", num(a) / div(b), expr);
-      case "%"  : return wrap_op_result("number", num(a) % num(b), expr);
-      case "and": return wrap_op_result("bool", bool(a) && bool(b), expr);
-      case "or" : return wrap_op_result("bool", bool(a) || bool(b), expr);
+      case "-"  : return wrap_op_result(KW.NUMBER, num(a) - num(b), expr);
+      case "*"  : return wrap_op_result(KW.NUMBER, num(a) * num(b), expr);
+      case "/"  : return wrap_op_result(KW.NUMBER, num(a) / div(b), expr);
+      case "%"  : return wrap_op_result(KW.NUMBER, num(a) % num(b), expr);
+      case "and": return wrap_op_result(KW.BOOL, bool(a) && bool(b), expr);
+      case "or" : return wrap_op_result(KW.BOOL, bool(a) || bool(b), expr);
       case "not": error.unary_only(expr);
-      case "<"  : return wrap_op_result("bool", num(a) < num(b), expr);
-      case ">"  : return wrap_op_result("bool", num(a) > num(b), expr);
-      case "<=" : return wrap_op_result("bool", num(a) <= num(b), expr);
-      case ">=" : return wrap_op_result("bool", num(a) >= num(b), expr);
-      case "==" : return wrap_op_result("bool", equal(a, b), expr);
-      case "!=" : return wrap_op_result("bool", !equal(a, b), expr);
+      case "<"  : return wrap_op_result(KW.BOOL, num(a) < num(b), expr);
+      case ">"  : return wrap_op_result(KW.BOOL, num(a) > num(b), expr);
+      case "<=" : return wrap_op_result(KW.BOOL, num(a) <= num(b), expr);
+      case ">=" : return wrap_op_result(KW.BOOL, num(a) >= num(b), expr);
+      case "==" : return wrap_op_result(KW.BOOL, equal(a, b), expr);
+      case "!=" : return wrap_op_result(KW.BOOL, !equal(a, b), expr);
       case "=<" : case "=>" : case "=!" :
         error.operator_reverse_order(expr);
     }
@@ -165,8 +164,8 @@ function apply_op(expr, env) {
   } else {
     var a = expr.value;
     switch (expr.operator) {
-      case "-"  : return wrap_op_result("number", -num(a), expr);
-      case "not": return wrap_op_result("bool", !bool(a), expr);
+      case "-"  : return wrap_op_result(KW.NUMBER, -num(a), expr);
+      case "not": return wrap_op_result(KW.BOOL, !bool(a), expr);
       case "+"  : case "*"  : case "/"  : case "%"  : case "and": case "or" :
       case "<"  : case ">"  : case "<=" : case ">=" : case "==" : case "!=" :
       case "=<" : case "=>" : case "=!" :

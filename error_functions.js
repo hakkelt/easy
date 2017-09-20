@@ -3,7 +3,7 @@ module.exports = {
   format: function (value) {
     if (value.constructor === Array || typeof value === 'object')
         return JSON.stringify(value);
-    return value.PC.toString();
+    return value;
   },
   die: function (msg, pos) {
     if (mode == "console")

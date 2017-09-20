@@ -161,7 +161,7 @@ function TokenStream(input) {
   }
   function read_string(begin_pos) {
     return {
-      type      : "string",
+      type      : KW.STRING,
       value     : read_escaped('"'),
       dimension : 0,
       position  : wrapPosition(begin_pos)

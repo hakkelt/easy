@@ -86,21 +86,16 @@ function parse(input) {
       };
   }
   function parse_new_vars() {
-    skip_punc(":");
     var begin_pos = input.begin_pos();
-    var ret = {
+    return {
       type     : "new_var",
-      vars     : []
+      vars     : parse_varline(),
+      position : input.get_pos(begin_pos)
     };
-    do {
-      skip_punc("\n", true);
-      ret.vars.push(parse_varline());
-    } while (skip_punc(",", true));
-    ret.position = input.get_pos(begin_pos);
-    return ret;
   }
   function parse_varname() {
     var name = input.next();
+    if (name.type == "punc") error.unexpected_token(name)
     if (name.type != "var") error.expecting_var_name(name);
     already_parsed_var.push(name.value.toLowerCase());
     return name.value;
@@ -112,9 +107,18 @@ function parse(input) {
     error.check_var_type_name(type);
     return type;
   }
+  function delimited_varline() {
+    var a = [];
+    while (!input.eof()) {
+      a.push(parse_varname());
+      if (skip_punc(":", true)) break;
+      else skip_punc(",");
+    }
+    return a;
+  }
   function parse_varline() {
     var begin_pos = input.begin_pos();
-    var names = delimited(null, ":", ",", parse_varname);
+    var names = delimited_varline();
     var type = parse_var_type_name();
     var dimension = 0;
     while (type.value.toLowerCase() == KW.ARRAY) {
@@ -290,11 +294,11 @@ function parse(input) {
         return exp;
       }
       var begin_pos = input.begin_pos();
-      if (skip_kw("variables", true)) {;
+      if (skip_kw(KW.VARIABLE, true)) {;
         var ret = parse_new_vars(begin_pos);
         variable_is_recently_defined = {
           something_parsed_after: false,
-          position: ret.position.end
+          position: ret.position.begin
         }
         return ret;
       }
@@ -304,14 +308,14 @@ function parse(input) {
         variable_is_recently_defined = null;
       if (is_unary()) return parse_unary(begin_pos);
       if (skip_punc("[", true)) return parse_array_def(begin_pos);
-      if (is_kw("true") || is_kw("false")) return parse_bool(begin_pos);
-      if (skip_kw("if", true)) return parse_if(begin_pos);
-      if (skip_kw("while", true)) return parse_while(begin_pos);
-      if (skip_kw("function", true)) return parse_function(begin_pos);
+      if (is_kw(KW.TRUE) || is_kw(KW.FALSE)) return parse_bool(begin_pos);
+      if (skip_kw(KW.IF, true)) return parse_if(begin_pos);
+      if (skip_kw(KW.WHILE, true)) return parse_while(begin_pos);
+      if (skip_kw(KW.FUNCTION, true)) return parse_function(begin_pos);
       var token = input.next();
       if (token.type == "var" && already_parsed_var.indexOf(token.value.toLowerCase()) == -1)
         error.not_known_word(token);
-      if (token.type == "var" || token.type == "number" || token.type == "string"){
+      if (token.type == "var" || token.type == KW.NUMBER || token.type == KW.STRING){
         var ret = maybe_array(token);
         var is_next_semicolon = input.peek().value == ":";
         if (variable_is_recently_defined && token.type == "var" && is_next_semicolon)

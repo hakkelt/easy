@@ -43,6 +43,10 @@ module.exports = {
     title: "Syntax error",
     msg: "Expecting operator: OP"
   },
+  expecting_var_name: {
+    title: "Syntax error",
+    msg: "ID is not a valid type name"
+  },
   not_known_word: {
     title: "Syntax error",
     msg: "I don't understand the following word: TOKEN (maybe a typo or variable used before definition?)"

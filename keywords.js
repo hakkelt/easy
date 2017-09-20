@@ -6,13 +6,13 @@ const ELSE      = "else";
 const WHILE     = "while";
 const FUNCTION  = "function";
 const END       = "end";
-const VARIABLES = "variables";
+const VARIABLE  = "variable";
 const NUMBER    = "number";
 const NUMBERS   = "numbers";
-const STRING    = "string";
-const STRINGS   = "strings";
-const BOOL      = "bool";
-const BOOLS     = "bools";
+const STRING    = "text";
+const STRINGS   = "texts";
+const BOOL      = "logical";
+const BOOLS     = "logicals";
 const ARRAY     = "array";
 const ARRAYS    = "arrays";
 const OF        = "of"; // omitted if set to null
@@ -27,7 +27,7 @@ const FALSE     = "false";
 const double_keywords_begin  = [ELSE, END];
 const double_keywords_ending = [IF, FUNCTION, WHILE];
 const structural_keywords    = [IF, THEN, ELSE, WHILE, FUNCTION, END];
-const variable_definition    = [VARIABLES, OF];
+const variable_definition    = [VARIABLE, OF];
 const variable_types         = [NUMBER, STRING, BOOL, ARRAY];
 const variable_types_plural  = [NUMBERS, STRINGS, BOOLS, ARRAYS];
 const operator_keywords      = [AND, OR, NOT];
@@ -52,7 +52,7 @@ module.exports = {
   FUNCTION    : FUNCTION,
   ENDFUNCTION : END + " " + FUNCTION,
   END         : END,
-  VARIABLES   : VARIABLES,
+  VARIABLE    : VARIABLE,
   NUMBER      : NUMBER,
   NUMBERS     : NUMBERS,
   STRING      : STRING,
