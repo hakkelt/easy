@@ -29,16 +29,12 @@ fs.readFile(filename, 'utf8', function(err, code) {
 	var p = require("./parser");
 	var e = require("./evaluate");
 	var ast = p.parse(t.TokenStream(i.InputStream(code)));
+  var pc = require('./printCode');
 	e.evaluate(ast, globalEnv);
 	const fs = require('fs');
-	const util = require('util');
-	const content = util.inspect(e.logger.log, {showHidden: false, depth: null});
-
+	const content = pc.print_tree(ast) + pc.print_tree(e.logger.log)
 	fs.writeFile("logger.txt", content, 'utf8', function (err) {
-	    if (err) {
-	        return console.log(err);
-	    }
-
+	    if (err) throw err;
 	    console.log("The file was saved!");
 	});
 });

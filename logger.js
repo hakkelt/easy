@@ -26,12 +26,7 @@ function new_node(string, type) {
   };
 }
 
-function deep_copy(tree) {
-  return JSON.parse(JSON.stringify(tree));
-}
-
-function add(input) {
-  var ast = deep_copy(input);
+function add(ast) {
   if (ast.position.begin.line != ast.position.end.line ||
       ["newline", "new_var", "new_array", "number", "string", "bool"].indexOf(ast.type) != -1)
         return null;
@@ -52,9 +47,12 @@ function typeToString(value) {
 
 function set(current, value, ast) {
   if (current == null || value == null) return value;
-  map[current].value = {
-    type: typeToString(value),
-    value: value.value
-  }
+  if (value.type == "function")
+    map[current].value = "function";
+  else
+    map[current].value = {
+      type: typeToString(value),
+      value: value.value
+    }
   return value;
 }

@@ -40,8 +40,8 @@ function evaluate(expr, env) {
       return make_function(env, expr);
 
     case "if":
-      for (i = 0; i < expr.cond.length; i++)
-        if (evaluate(expr.cond[i], env).value != false)
+      for (var i = 0; i < expr.cond.length; i++)
+        if (evaluate(expr.cond[i], env).value)
           return evaluate(expr.then[i], env);
       if (expr.else) return evaluate(expr.else, env);
       return null;
@@ -59,9 +59,9 @@ function evaluate(expr, env) {
       var func = evaluate(expr.func, env);
       if (func.dimension == undefined) {
         func = func.value;
-        var temp = [expr].concat(expr.args.map(function(arg){
+        var temp = expr.args.map(function(arg){
           return evaluate(arg, env);
-        }));
+        });
         return logger.set(current_log_index, func.apply(null, temp), expr);
       } else {
         var call_args = expr.args.map(function(arg){
@@ -126,7 +126,7 @@ function apply_op(expr, env) {
     var left = evaluate(a, env);
     var right = evaluate(b, env);
     error.operator_same_type(expr, left, right);
-    return a.value === b.value;
+    return left.value == right.value;
   }
   function wrap_op_result(type, value, expr) {
     return {

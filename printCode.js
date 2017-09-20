@@ -110,5 +110,5 @@ function toString(ast, indent="") {
 }
 function print_tree(ast) {
 	const util = require('util');
-	util.inspect(ast, {showHidden: false, depth: null});
+	return util.inspect(ast, {showHidden: false, depth: null});
 }
